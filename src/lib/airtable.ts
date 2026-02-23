@@ -1,64 +1,16 @@
 import Airtable from "airtable";
 import { Lead, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, ActivityType, ActivityOutcome } from "@/types";
 
-// Cache for the actual Airtable select option values fetched via metadata API
-let cachedScoreLabelOptions: string[] | null = null;
+const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
 
-async function fetchScoreLabelOptions(): Promise<string[]> {
-  if (cachedScoreLabelOptions) return cachedScoreLabelOptions;
-
-  try {
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    if (!baseId || !apiKey) return [];
-
-    const res = await fetch(
-      `https://api.airtable.com/v0/meta/bases/${baseId}/tables`,
-      { headers: { Authorization: `Bearer ${apiKey}` } }
-    );
-    if (!res.ok) {
-      console.warn("Failed to fetch Airtable metadata:", res.status);
-      return [];
-    }
-    const meta = await res.json();
-    const leadsTable = meta.tables?.find((t: any) => t.name === "Leads");
-    const scoreLabelField = leadsTable?.fields?.find((f: any) => f.name === "AI Score Label");
-    const options = scoreLabelField?.options?.choices?.map((c: any) => c.name) || [];
-    console.log("Airtable AI Score Label options:", JSON.stringify(options));
-    cachedScoreLabelOptions = options;
-    return options;
-  } catch (e) {
-    console.warn("Error fetching Airtable metadata:", e);
-    return [];
-  }
-}
-
-async function resolveScoreLabel(label: string): Promise<string> {
-  // Strip any quote characters
+function cleanScoreLabel(label: string): ScoreLabel {
   const cleaned = label.replace(/["']/g, "").trim();
-  console.log("resolveScoreLabel cleaned:", JSON.stringify(cleaned));
-
-  // Try to match against actual Airtable options (exact byte match)
-  const options = await fetchScoreLabelOptions();
-  if (options.length > 0) {
-    const exact = options.find((o) => o === cleaned);
-    if (exact) {
-      console.log("resolveScoreLabel exact match:", JSON.stringify(exact));
-      return exact;
-    }
-    // Fuzzy match: strip emojis/symbols and check if the Airtable option starts with our label text
-    // e.g. "hot" matches "hot red" (from "Hot 🔥 (red)")
-    const prefix = cleaned.replace(/[^\w\s]/g, "").trim().toLowerCase();
-    const fuzzy = options.find((o) => o.replace(/[^\w\s]/g, "").trim().toLowerCase().startsWith(prefix));
-    if (fuzzy) {
-      console.log("resolveScoreLabel fuzzy match:", JSON.stringify(fuzzy));
-      return fuzzy;
-    }
-    console.warn("resolveScoreLabel no match found for:", JSON.stringify(cleaned), "in options:", JSON.stringify(options));
+  if (VALID_SCORE_LABELS.includes(cleaned as ScoreLabel)) {
+    return cleaned as ScoreLabel;
   }
-
-  // Fallback: return the cleaned value as-is
-  return cleaned;
+  if (cleaned.toLowerCase().startsWith("hot")) return "Hot 🔥";
+  if (cleaned.toLowerCase().startsWith("warm")) return "Warm 🌡️";
+  return "Cold ❄️";
 }
 
 const getBase = () => {
@@ -145,14 +97,13 @@ export async function createLead(data: Partial<Lead>): Promise<Lead> {
   if (data.notes) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel) {
-    fields["AI Score Label"] = await resolveScoreLabel(data.aiScoreLabel);
+    fields["AI Score Label"] = cleanScoreLabel(data.aiScoreLabel);
   }
   if (data.aiInsights) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
   if (data.concerns) fields["Concerns"] = JSON.stringify(data.concerns);
   if (data.suggestedNextStep) fields["Suggested Next Step"] = data.suggestedNextStep;
 
-  console.log("createLead fields:", JSON.stringify(fields, null, 2));
   const record = await base("Leads").create(fields);
   return mapRecordToLead(record);
 }
@@ -171,7 +122,7 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.notes !== undefined) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel !== undefined) {
-    fields["AI Score Label"] = await resolveScoreLabel(data.aiScoreLabel);
+    fields["AI Score Label"] = cleanScoreLabel(data.aiScoreLabel);
   }
   if (data.aiInsights !== undefined) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths !== undefined) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
@@ -182,7 +133,6 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.vapiCallStatus !== undefined) fields["Vapi Call Status"] = data.vapiCallStatus;
   if (data.vapiCallSummary !== undefined) fields["Vapi Call Summary"] = data.vapiCallSummary;
 
-  console.log("updateLead fields:", JSON.stringify(fields, null, 2));
   const record = await base("Leads").update(id, fields);
   return mapRecordToLead(record);
 }
