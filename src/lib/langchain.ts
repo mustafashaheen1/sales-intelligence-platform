@@ -56,22 +56,15 @@ Return ONLY valid JSON, no other text.`;
 
   const result = JSON.parse(jsonMatch[0]);
   const score = Math.min(100, Math.max(0, Number(result.score)));
-
-  // Strip leading/trailing quotes that LLMs sometimes wrap around string values
-  const cleanString = (val: unknown): string =>
-    typeof val === "string" ? val.replace(/^["']+|["']+$/g, "").trim() : String(val ?? "");
+  const scoreLabel = getScoreLabel(score);
 
   return {
     score,
-    scoreLabel: getScoreLabel(score),
-    insights: cleanString(result.insights),
-    keyStrengths: Array.isArray(result.keyStrengths)
-      ? result.keyStrengths.map(cleanString)
-      : [],
-    concerns: Array.isArray(result.concerns)
-      ? result.concerns.map(cleanString)
-      : [],
-    suggestedNextStep: cleanString(result.suggestedNextStep) || "Follow up with more information",
+    scoreLabel: scoreLabel.replace(/"/g, "").trim() as typeof scoreLabel,
+    insights: typeof result.insights === "string" ? result.insights : "",
+    keyStrengths: Array.isArray(result.keyStrengths) ? result.keyStrengths : [],
+    concerns: Array.isArray(result.concerns) ? result.concerns : [],
+    suggestedNextStep: result.suggestedNextStep || "Follow up with more information",
   };
 }
 

@@ -3,9 +3,16 @@ import { Lead, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, Act
 
 const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
 
-function cleanScoreLabel(label: string): ScoreLabel | undefined {
-  const cleaned = label.replace(/^["']+|["']+$/g, "").trim();
-  return VALID_SCORE_LABELS.includes(cleaned as ScoreLabel) ? (cleaned as ScoreLabel) : undefined;
+function cleanScoreLabel(label: string): ScoreLabel {
+  // Strip ALL quote characters to prevent Airtable "create new select option" errors
+  const cleaned = label.replace(/["']/g, "").trim();
+  if (VALID_SCORE_LABELS.includes(cleaned as ScoreLabel)) {
+    return cleaned as ScoreLabel;
+  }
+  // Fallback: try to match by prefix
+  if (cleaned.startsWith("Hot")) return "Hot 🔥";
+  if (cleaned.startsWith("Warm")) return "Warm 🌡️";
+  return "Cold ❄️";
 }
 
 const getBase = () => {
@@ -92,8 +99,7 @@ export async function createLead(data: Partial<Lead>): Promise<Lead> {
   if (data.notes) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel) {
-    const label = cleanScoreLabel(data.aiScoreLabel);
-    if (label) fields["AI Score Label"] = label;
+    fields["AI Score Label"] = cleanScoreLabel(data.aiScoreLabel);
   }
   if (data.aiInsights) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
@@ -118,8 +124,7 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.notes !== undefined) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel !== undefined) {
-    const label = cleanScoreLabel(data.aiScoreLabel);
-    if (label) fields["AI Score Label"] = label;
+    fields["AI Score Label"] = cleanScoreLabel(data.aiScoreLabel);
   }
   if (data.aiInsights !== undefined) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths !== undefined) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
