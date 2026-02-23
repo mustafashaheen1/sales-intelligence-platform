@@ -116,13 +116,15 @@ export async function createLead(data: Partial<Lead>): Promise<Lead> {
   if (data.notes) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel) {
-    fields["AI Score Label"] = cleanScoreLabel(data.aiScoreLabel);
+    const label = cleanScoreLabel(data.aiScoreLabel);
+    fields["AI Score Label"] = { name: label };
   }
   if (data.aiInsights) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
   if (data.concerns) fields["Concerns"] = JSON.stringify(data.concerns);
   if (data.suggestedNextStep) fields["Suggested Next Step"] = data.suggestedNextStep;
 
+  console.log("createLead fields:", JSON.stringify(fields, null, 2));
   const record = await base("Leads").create(fields);
   return mapRecordToLead(record);
 }
@@ -141,7 +143,8 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.notes !== undefined) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel !== undefined) {
-    fields["AI Score Label"] = cleanScoreLabel(data.aiScoreLabel);
+    const label = cleanScoreLabel(data.aiScoreLabel);
+    fields["AI Score Label"] = { name: label };
   }
   if (data.aiInsights !== undefined) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths !== undefined) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
@@ -152,6 +155,7 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.vapiCallStatus !== undefined) fields["Vapi Call Status"] = data.vapiCallStatus;
   if (data.vapiCallSummary !== undefined) fields["Vapi Call Summary"] = data.vapiCallSummary;
 
+  console.log("updateLead fields:", JSON.stringify(fields, null, 2));
   const record = await base("Leads").update(id, fields);
   return mapRecordToLead(record);
 }
