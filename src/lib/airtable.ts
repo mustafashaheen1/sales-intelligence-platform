@@ -1,35 +1,63 @@
 import Airtable from "airtable";
 import { Lead, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, ActivityType, ActivityOutcome } from "@/types";
 
-const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
+// Cache for the actual Airtable select option values fetched via metadata API
+let cachedScoreLabelOptions: string[] | null = null;
 
-function cleanScoreLabel(label: string): ScoreLabel {
-  console.log("cleanScoreLabel INPUT:", JSON.stringify(label), "type:", typeof label);
+async function fetchScoreLabelOptions(): Promise<string[]> {
+  if (cachedScoreLabelOptions) return cachedScoreLabelOptions;
 
-  // Handle case where label might already be stringified
-  let cleaned = label;
+  try {
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const apiKey = process.env.AIRTABLE_API_KEY;
+    if (!baseId || !apiKey) return [];
 
-  // If the label looks like a JSON string (starts and ends with quotes), parse it
-  if (typeof cleaned === "string" && cleaned.startsWith('"') && cleaned.endsWith('"')) {
-    try {
-      cleaned = JSON.parse(cleaned);
-    } catch (e) {
-      // Not valid JSON, continue with normal cleaning
+    const res = await fetch(
+      `https://api.airtable.com/v0/meta/bases/${baseId}/tables`,
+      { headers: { Authorization: `Bearer ${apiKey}` } }
+    );
+    if (!res.ok) {
+      console.warn("Failed to fetch Airtable metadata:", res.status);
+      return [];
     }
+    const meta = await res.json();
+    const leadsTable = meta.tables?.find((t: any) => t.name === "Leads");
+    const scoreLabelField = leadsTable?.fields?.find((f: any) => f.name === "AI Score Label");
+    const options = scoreLabelField?.options?.choices?.map((c: any) => c.name) || [];
+    console.log("Airtable AI Score Label options:", JSON.stringify(options));
+    cachedScoreLabelOptions = options;
+    return options;
+  } catch (e) {
+    console.warn("Error fetching Airtable metadata:", e);
+    return [];
+  }
+}
+
+async function resolveScoreLabel(label: string): Promise<string> {
+  // Strip any quote characters
+  const cleaned = label.replace(/["']/g, "").trim();
+  console.log("resolveScoreLabel cleaned:", JSON.stringify(cleaned));
+
+  // Try to match against actual Airtable options (exact byte match)
+  const options = await fetchScoreLabelOptions();
+  if (options.length > 0) {
+    const exact = options.find((o) => o === cleaned);
+    if (exact) {
+      console.log("resolveScoreLabel exact match:", JSON.stringify(exact));
+      return exact;
+    }
+    // Fuzzy match: compare without emojis to find the right option
+    const prefix = cleaned.replace(/[^\w\s]/g, "").trim().toLowerCase();
+    const fuzzy = options.find((o) => o.replace(/[^\w\s]/g, "").trim().toLowerCase() === prefix);
+    if (fuzzy) {
+      console.log("resolveScoreLabel fuzzy match:", JSON.stringify(fuzzy));
+      return fuzzy;
+    }
+    console.warn("resolveScoreLabel no match found for:", JSON.stringify(cleaned), "in options:", JSON.stringify(options));
   }
 
-  // Strip ALL quote characters
-  cleaned = String(cleaned).replace(/["']/g, "").trim();
-
-  console.log("cleanScoreLabel OUTPUT:", cleaned);
-
-  if (VALID_SCORE_LABELS.includes(cleaned as ScoreLabel)) {
-    return cleaned as ScoreLabel;
-  }
-  // Fallback: try to match by prefix
-  if (cleaned.startsWith("Hot")) return "Hot 🔥";
-  if (cleaned.startsWith("Warm")) return "Warm 🌡️";
-  return "Cold ❄️";
+  // Fallback: return the cleaned value as-is
+  return cleaned;
 }
 
 const getBase = () => {
@@ -116,8 +144,7 @@ export async function createLead(data: Partial<Lead>): Promise<Lead> {
   if (data.notes) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel) {
-    const label = cleanScoreLabel(data.aiScoreLabel);
-    fields["AI Score Label"] = { name: label };
+    fields["AI Score Label"] = await resolveScoreLabel(data.aiScoreLabel);
   }
   if (data.aiInsights) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
@@ -143,8 +170,7 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.notes !== undefined) fields["Notes"] = data.notes;
   if (data.aiScore !== undefined) fields["AI Score"] = data.aiScore;
   if (data.aiScoreLabel !== undefined) {
-    const label = cleanScoreLabel(data.aiScoreLabel);
-    fields["AI Score Label"] = { name: label };
+    fields["AI Score Label"] = await resolveScoreLabel(data.aiScoreLabel);
   }
   if (data.aiInsights !== undefined) fields["AI Insights"] = data.aiInsights;
   if (data.keyStrengths !== undefined) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
