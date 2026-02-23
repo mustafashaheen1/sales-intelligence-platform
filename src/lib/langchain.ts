@@ -56,11 +56,10 @@ Return ONLY valid JSON, no other text.`;
 
   const result = JSON.parse(jsonMatch[0]);
   const score = Math.min(100, Math.max(0, Number(result.score)));
-  const scoreLabel = getScoreLabel(score);
 
   return {
     score,
-    scoreLabel: scoreLabel.replace(/"/g, "").trim() as typeof scoreLabel,
+    scoreLabel: getScoreLabel(score),
     insights: typeof result.insights === "string" ? result.insights : "",
     keyStrengths: Array.isArray(result.keyStrengths) ? result.keyStrengths : [],
     concerns: Array.isArray(result.concerns) ? result.concerns : [],

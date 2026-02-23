@@ -4,8 +4,25 @@ import { Lead, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, Act
 const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
 
 function cleanScoreLabel(label: string): ScoreLabel {
-  // Strip ALL quote characters to prevent Airtable "create new select option" errors
-  const cleaned = label.replace(/["']/g, "").trim();
+  console.log("cleanScoreLabel INPUT:", JSON.stringify(label), "type:", typeof label);
+
+  // Handle case where label might already be stringified
+  let cleaned = label;
+
+  // If the label looks like a JSON string (starts and ends with quotes), parse it
+  if (typeof cleaned === "string" && cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    try {
+      cleaned = JSON.parse(cleaned);
+    } catch (e) {
+      // Not valid JSON, continue with normal cleaning
+    }
+  }
+
+  // Strip ALL quote characters
+  cleaned = String(cleaned).replace(/["']/g, "").trim();
+
+  console.log("cleanScoreLabel OUTPUT:", cleaned);
+
   if (VALID_SCORE_LABELS.includes(cleaned as ScoreLabel)) {
     return cleaned as ScoreLabel;
   }
