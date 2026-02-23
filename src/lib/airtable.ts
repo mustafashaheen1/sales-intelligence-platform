@@ -46,9 +46,10 @@ async function resolveScoreLabel(label: string): Promise<string> {
       console.log("resolveScoreLabel exact match:", JSON.stringify(exact));
       return exact;
     }
-    // Fuzzy match: compare without emojis to find the right option
+    // Fuzzy match: strip emojis/symbols and check if the Airtable option starts with our label text
+    // e.g. "hot" matches "hot red" (from "Hot 🔥 (red)")
     const prefix = cleaned.replace(/[^\w\s]/g, "").trim().toLowerCase();
-    const fuzzy = options.find((o) => o.replace(/[^\w\s]/g, "").trim().toLowerCase() === prefix);
+    const fuzzy = options.find((o) => o.replace(/[^\w\s]/g, "").trim().toLowerCase().startsWith(prefix));
     if (fuzzy) {
       console.log("resolveScoreLabel fuzzy match:", JSON.stringify(fuzzy));
       return fuzzy;
