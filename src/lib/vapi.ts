@@ -63,6 +63,8 @@ export function parseVapiWebhook(body: any): {
   summary?: string;
   outcome?: string;
   transcript?: string;
+  customerPhone?: string;
+  structuredData?: Record<string, any>;
 } {
   const message = body.message || body;
 
@@ -80,6 +82,8 @@ export function parseVapiWebhook(body: any): {
     summary: message.analysis?.summary || message.summary,
     outcome: message.analysis?.successEvaluation || "unknown",
     transcript: message.transcript,
+    customerPhone: message.customer?.number || message.call?.customer?.number,
+    structuredData: message.analysis?.structuredData,
   };
 }
 
