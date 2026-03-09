@@ -24,14 +24,19 @@ export async function scheduleVapiCall(params: {
     throw new Error("Vapi Assistant ID not configured");
   }
 
+  const phoneNumberId = process.env.VAPI_PHONE_NUMBER_ID;
+  if (!phoneNumberId) {
+    throw new Error("Vapi Phone Number ID not configured");
+  }
+
   const response = await fetch(`${VAPI_API_BASE}/call`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify({
+      phoneNumberId,
       assistantId,
       customer: {
         number: params.phoneNumber,
-        name: params.leadName,
       },
       assistantOverrides: {
         firstMessage: `Hi, this is Sarah from the sales team. Am I speaking with ${params.leadName}${params.leadCompany ? ` from ${params.leadCompany}` : ""}?`,
