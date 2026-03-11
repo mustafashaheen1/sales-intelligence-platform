@@ -4,9 +4,22 @@ import { triggerN8nWorkflow } from "@/lib/n8n";
 import { getLeads, updateLead } from "@/lib/airtable";
 
 function formatDuration(seconds: number): string {
+  if (!seconds) return "0s";
   const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}m ${secs}s`;
+  const secs = Math.round(seconds % 60);
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+}
+
+function extractStructuredOutputs(artifact: any): Record<string, any> {
+  const outputs: Record<string, any> = {};
+  if (artifact?.structuredOutputs) {
+    for (const [key, value] of Object.entries(artifact.structuredOutputs)) {
+      if (value && typeof value === "object" && "name" in value && "result" in value) {
+        outputs[(value as any).name] = (value as any).result;
+      }
+    }
+  }
+  return outputs;
 }
 
 export async function POST(request: NextRequest) {
@@ -14,11 +27,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     console.log("=== VAPI WEBHOOK RAW ===");
-    console.log("body.message:", JSON.stringify(body.message, null, 2));
     console.log("body.message.type:", body.message?.type);
     console.log("All body keys:", Object.keys(body));
-    console.log("body.type:", body.type);
-    console.log("body.event:", body.event);
 
     // Only process end-of-call-report events
     if (body.message?.type !== "end-of-call-report") {
@@ -29,9 +39,11 @@ export async function POST(request: NextRequest) {
     console.log("Processing end-of-call-report");
     console.log("Customer phone:", body.message?.customer?.number);
     console.log("Call analysis:", JSON.stringify(body.message?.analysis, null, 2));
+    console.log("Artifact:", JSON.stringify(body.message?.artifact, null, 2));
 
     const result = parseVapiWebhook(body);
-    const structured = result.structuredData || {};
+    const structuredOutputs = extractStructuredOutputs(body.message?.artifact);
+    console.log("Extracted structured outputs:", JSON.stringify(structuredOutputs, null, 2));
 
     // Look up lead by phone number in Airtable (normalize to digits-only for matching)
     let lead = null;
@@ -57,7 +69,7 @@ export async function POST(request: NextRequest) {
       try {
         await updateLead(lead.id, {
           vapiCallStatus: result.status,
-          vapiCallSummary: result.summary || structured.call_summary || "Call completed",
+          vapiCallSummary: result.summary || structuredOutputs.call_summary || "Call completed",
         });
         console.log("Updated Airtable for lead:", lead.id);
       } catch (err) {
@@ -68,6 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Trigger n8n with enriched payload
+    console.log("Step 5: Triggering n8n...");
     const n8nData: Record<string, any> = {
       // Lead info
       lead_id: lead?.id || "",
@@ -77,24 +90,31 @@ export async function POST(request: NextRequest) {
       lead_phone: result.customerPhone || "",
 
       // Call info
-      call_id: result.callId,
-      call_duration: result.duration || 0,
-      call_duration_formatted: result.duration ? formatDuration(result.duration) : "0m 0s",
-      call_outcome: result.status,
+      call_id: body.message?.call?.id || result.callId,
+      call_duration_seconds: body.message?.durationSeconds || result.duration || 0,
+      call_duration_formatted: formatDuration(body.message?.durationSeconds || result.duration || 0),
+      call_outcome: body.message?.endedReason || result.status,
 
       // AI analysis from Vapi structured outputs
-      qualification_status: structured.qualification_status || "",
-      pain_points: structured.pain_points || "",
-      budget_range: structured.budget_range || "",
-      timeline: structured.timeline || "",
-      is_decision_maker: structured.is_decision_maker ?? false,
-      call_summary: result.summary || structured.call_summary || "",
-      next_steps: structured.next_steps || "",
+      qualification_status: structuredOutputs.qualification_status || "",
+      pain_points: structuredOutputs.pain_points || "",
+      budget_range: structuredOutputs.budget_range || "",
+      timeline: structuredOutputs.timeline || "",
+      is_decision_maker: structuredOutputs.is_decision_maker ?? false,
+      call_summary: structuredOutputs.call_summary || result.summary || "",
+      next_steps: structuredOutputs.next_steps || "",
+
+      // Extras
+      transcript: body.message?.transcript || "",
+      recording_url: body.message?.recordingUrl || "",
     };
 
-    triggerN8nWorkflow("call_completed", n8nData)
-      .then((res) => console.log("Triggered n8n webhook:", res))
-      .catch(console.error);
+    try {
+      const n8nResult = await triggerN8nWorkflow("call_completed", n8nData);
+      console.log("n8n triggered successfully:", JSON.stringify(n8nResult));
+    } catch (err) {
+      console.error("Failed to trigger n8n:", err);
+    }
 
     return NextResponse.json({ received: true });
   } catch (error) {
