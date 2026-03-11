@@ -21,8 +21,8 @@ export async function enrichLead(lead: Partial<Lead>): Promise<Record<string, an
     body: JSON.stringify({
       params: {
         lead_name: lead.name || "",
-        company: lead.company || "",
-        email: lead.email || "",
+        lead_company: lead.company || "",
+        lead_email: lead.email || "",
       },
       project: projectId,
     }),
