@@ -13,10 +13,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    console.log("Vapi webhook received, type:", body.message?.type);
+
     // Only process end-of-call-report events
     if (body.message?.type !== "end-of-call-report") {
+      console.log("Ignoring non-end-of-call event:", body.message?.type);
       return NextResponse.json({ received: true });
     }
+
+    console.log("Processing end-of-call-report");
+    console.log("Customer phone:", body.message?.customer?.number);
+    console.log("Call analysis:", JSON.stringify(body.message?.analysis, null, 2));
 
     const result = parseVapiWebhook(body);
     const structured = result.structuredData || {};
@@ -30,9 +37,12 @@ export async function POST(request: NextRequest) {
           maxRecords: 1,
         });
         lead = leads[0] || null;
+        console.log("Found lead:", lead?.id, lead?.name);
       } catch (err) {
         console.error("Failed to look up lead by phone:", err);
       }
+    } else {
+      console.log("No customer phone found in webhook payload");
     }
 
     // Update Airtable lead with call results
@@ -42,9 +52,12 @@ export async function POST(request: NextRequest) {
           vapiCallStatus: result.status,
           vapiCallSummary: result.summary || structured.call_summary || "Call completed",
         });
+        console.log("Updated Airtable for lead:", lead.id);
       } catch (err) {
         console.error("Failed to update lead with call results:", err);
       }
+    } else {
+      console.log("No lead found, skipping Airtable update");
     }
 
     // Trigger n8n with enriched payload
@@ -72,7 +85,9 @@ export async function POST(request: NextRequest) {
       next_steps: structured.next_steps || "",
     };
 
-    triggerN8nWorkflow("call_completed", n8nData).catch(console.error);
+    triggerN8nWorkflow("call_completed", n8nData)
+      .then((res) => console.log("Triggered n8n webhook:", res))
+      .catch(console.error);
 
     return NextResponse.json({ received: true });
   } catch (error) {

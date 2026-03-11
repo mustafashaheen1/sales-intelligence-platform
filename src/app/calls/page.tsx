@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatDate } from "@/lib/utils";
-import { Phone, PhoneCall, PhoneOff, PhoneMissed, Clock, CheckCircle2, Calendar } from "lucide-react";
+import { Phone, PhoneCall, PhoneOff, PhoneMissed, Clock, CheckCircle2, Calendar, ExternalLink } from "lucide-react";
 import { VapiCall } from "@/types";
 
 const statusConfig: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
@@ -25,6 +26,7 @@ function formatDuration(seconds?: number): string {
 }
 
 export default function CallsPage() {
+  const router = useRouter();
   const [calls, setCalls] = useState<VapiCall[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -129,14 +131,24 @@ export default function CallsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium">{call.leadName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Scheduled: {call.scheduledAt ? formatDate(call.scheduledAt) : "TBD"}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {call.phone && <span className="text-xs text-muted-foreground">{call.phone}</span>}
+                        <span className="text-xs text-muted-foreground">
+                          Scheduled: {call.scheduledAt ? formatDate(call.scheduledAt) : "TBD"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
-                    Scheduled
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {call.leadId && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => router.push(`/leads/${call.leadId}`)}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                      Scheduled
+                    </Badge>
+                  </div>
                 </div>
               ))}
             </div>
@@ -170,6 +182,7 @@ export default function CallsPage() {
                         <div>
                           <p className="text-sm font-medium">{call.leadName}</p>
                           <div className="flex items-center gap-3 mt-0.5">
+                            {call.phone && <span className="text-xs text-muted-foreground">{call.phone}</span>}
                             <span className="text-xs text-muted-foreground">{formatDate(call.completedAt || call.scheduledAt)}</span>
                             {call.duration ? (
                               <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -182,6 +195,11 @@ export default function CallsPage() {
                       <div className="flex items-center gap-2">
                         {call.outcome && (
                           <span className="text-xs text-muted-foreground">{call.outcome}</span>
+                        )}
+                        {call.leadId && (
+                          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => router.push(`/leads/${call.leadId}`)}>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                         <Badge variant="outline" className={cn("text-xs", config.bg)}>
                           {call.status}

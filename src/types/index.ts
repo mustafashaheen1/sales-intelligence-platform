@@ -77,6 +77,7 @@ export interface VapiCall {
   id: string;
   leadId: string;
   leadName: string;
+  phone?: string;
   scheduledAt?: string;
   completedAt?: string;
   duration?: number;
