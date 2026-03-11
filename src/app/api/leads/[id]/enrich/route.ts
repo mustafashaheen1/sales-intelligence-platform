@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           companySize: "50-200 employees",
           industry: "Technology",
           companyLinkedin: "https://linkedin.com/company/example",
-          enrichedAt: new Date().toISOString(),
+          enrichedAt: new Date().toISOString().split('T')[0],
           enrichmentData: JSON.stringify({
             company_size: "50-200 employees",
             industry: "Technology",
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Build update payload from enrichment results
     const updateData: Record<string, any> = {
       enrichmentData: JSON.stringify(output),
-      enrichedAt: new Date().toISOString(),
+      enrichedAt: new Date().toISOString().split('T')[0],
     };
 
     // Update existing fields if enrichment provides better data
