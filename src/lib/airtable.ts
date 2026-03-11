@@ -43,6 +43,11 @@ function mapRecordToLead(record: any): Lead {
     notes: record.get("Notes") || undefined,
     vapiCallStatus: record.get("Vapi Call Status") as VapiCallStatus | undefined,
     vapiCallSummary: record.get("Vapi Call Summary") || undefined,
+    companySize: record.get("Company Size") || undefined,
+    industry: record.get("Industry") || undefined,
+    companyLinkedin: record.get("Company LinkedIn") || undefined,
+    enrichmentData: record.get("Enrichment Data") || undefined,
+    enrichedAt: record.get("Enriched At") || undefined,
     createdAt: record.get("Created") || undefined,
   };
 }
@@ -133,6 +138,11 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.nextFollowUp !== undefined) fields["Next Follow Up"] = data.nextFollowUp;
   if (data.vapiCallStatus !== undefined) fields["Vapi Call Status"] = data.vapiCallStatus;
   if (data.vapiCallSummary !== undefined) fields["Vapi Call Summary"] = data.vapiCallSummary;
+  if (data.companySize !== undefined) fields["Company Size"] = data.companySize;
+  if (data.industry !== undefined) fields["Industry"] = data.industry;
+  if (data.companyLinkedin !== undefined) fields["Company LinkedIn"] = data.companyLinkedin;
+  if (data.enrichmentData !== undefined) fields["Enrichment Data"] = data.enrichmentData;
+  if (data.enrichedAt !== undefined) fields["Enriched At"] = data.enrichedAt;
 
   const record = await base("Leads").update(id, fields);
   return mapRecordToLead(record);

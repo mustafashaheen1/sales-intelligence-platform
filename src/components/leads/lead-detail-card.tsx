@@ -9,7 +9,7 @@ import { LeadScoreBadge } from "./lead-score-badge";
 import {
   Mail, Phone, Building2, Briefcase, Globe, Linkedin,
   BrainCircuit, MessageSquare, PhoneCall, FileEdit, Loader2,
-  CheckCircle2, AlertCircle, ArrowRight, Calendar,
+  CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,13 +19,15 @@ interface LeadDetailCardProps {
   onScore: () => Promise<void>;
   onGenerateOutreach: (type: string, tone: string) => Promise<any>;
   onScheduleCall: () => Promise<void>;
+  onEnrich: () => Promise<void>;
 }
 
-export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall }: LeadDetailCardProps) {
+export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich }: LeadDetailCardProps) {
   const [scoring, setScoring] = useState(false);
   const [generatingOutreach, setGeneratingOutreach] = useState(false);
   const [outreachResult, setOutreachResult] = useState<{ subject?: string; message: string } | null>(null);
   const [schedulingCall, setSchedulingCall] = useState(false);
+  const [enriching, setEnriching] = useState(false);
 
   const handleScore = async () => {
     setScoring(true);
@@ -60,6 +62,18 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
       toast.error("Failed to schedule call");
     } finally {
       setSchedulingCall(false);
+    }
+  };
+
+  const handleEnrich = async () => {
+    setEnriching(true);
+    try {
+      await onEnrich();
+      toast.success("Lead enriched!");
+    } catch {
+      toast.error("Failed to enrich lead");
+    } finally {
+      setEnriching(false);
     }
   };
 
@@ -217,6 +231,10 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
               {schedulingCall ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PhoneCall className="h-3.5 w-3.5 mr-1" />}
               Schedule Vapi Call
             </Button>
+            <Button size="sm" variant="outline" onClick={handleEnrich} disabled={enriching}>
+              {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+              Enrich Lead
+            </Button>
           </div>
 
           {outreachResult && (
@@ -253,6 +271,59 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">{lead.vapiCallSummary}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Enrichment Data */}
+      {(lead.companySize || lead.industry || lead.companyLinkedin || lead.enrichmentData) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" /> Enrichment Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {lead.industry && (
+                <div className="flex items-start gap-2">
+                  <Factory className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs text-muted-foreground">Industry</span>
+                    <p className="text-sm">{lead.industry}</p>
+                  </div>
+                </div>
+              )}
+              {lead.companySize && (
+                <div className="flex items-start gap-2">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs text-muted-foreground">Company Size</span>
+                    <p className="text-sm">{lead.companySize}</p>
+                  </div>
+                </div>
+              )}
+              {lead.companyLinkedin && (
+                <div className="flex items-start gap-2">
+                  <Linkedin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs text-muted-foreground">Company LinkedIn</span>
+                    <a href={lead.companyLinkedin} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline block truncate">
+                      {lead.companyLinkedin}
+                    </a>
+                  </div>
+                </div>
+              )}
+              {lead.enrichedAt && (
+                <div className="flex items-start gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs text-muted-foreground">Enriched At</span>
+                    <p className="text-sm">{formatDate(lead.enrichedAt)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
