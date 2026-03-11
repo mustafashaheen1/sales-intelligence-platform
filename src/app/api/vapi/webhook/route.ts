@@ -13,7 +13,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log("Vapi webhook received, type:", body.message?.type);
+    console.log("=== VAPI WEBHOOK RAW ===");
+    console.log("body.message:", JSON.stringify(body.message, null, 2));
+    console.log("body.message.type:", body.message?.type);
+    console.log("All body keys:", Object.keys(body));
+    console.log("body.type:", body.type);
+    console.log("body.event:", body.event);
 
     // Only process end-of-call-report events
     if (body.message?.type !== "end-of-call-report") {
