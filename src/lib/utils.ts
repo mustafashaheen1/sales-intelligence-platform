@@ -69,6 +69,10 @@ export function formatRelativeDate(date: string | undefined): string {
   return formatDate(date);
 }
 
+export function normalizePhone(phone: string): string {
+  return phone.replace(/[^\d+]/g, "");
+}
+
 export function isDemoMode(): boolean {
   return process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.AIRTABLE_API_KEY;
 }

@@ -1,5 +1,6 @@
 import Airtable from "airtable";
 import { Lead, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, ActivityType, ActivityOutcome } from "@/types";
+import { normalizePhone } from "@/lib/utils";
 
 const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
 
@@ -88,7 +89,7 @@ export async function createLead(data: Partial<Lead>): Promise<Lead> {
     Name: data.name,
     Email: data.email,
   };
-  if (data.phone) fields["Phone"] = data.phone;
+  if (data.phone) fields["Phone"] = normalizePhone(data.phone);
   if (data.company) fields["Company"] = data.company;
   if (data.title) fields["Title"] = data.title;
   if (data.linkedinUrl) fields["LinkedIn URL"] = data.linkedinUrl;
@@ -113,7 +114,7 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   const fields: any = {};
   if (data.name !== undefined) fields["Name"] = data.name;
   if (data.email !== undefined) fields["Email"] = data.email;
-  if (data.phone !== undefined) fields["Phone"] = data.phone;
+  if (data.phone !== undefined) fields["Phone"] = normalizePhone(data.phone);
   if (data.company !== undefined) fields["Company"] = data.company;
   if (data.title !== undefined) fields["Title"] = data.title;
   if (data.linkedinUrl !== undefined) fields["LinkedIn URL"] = data.linkedinUrl;

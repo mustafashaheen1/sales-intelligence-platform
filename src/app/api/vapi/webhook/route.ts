@@ -28,12 +28,14 @@ export async function POST(request: NextRequest) {
     const result = parseVapiWebhook(body);
     const structured = result.structuredData || {};
 
-    // Look up lead by phone number in Airtable
+    // Look up lead by phone number in Airtable (normalize to digits-only for matching)
     let lead = null;
     if (result.customerPhone) {
+      const digits = result.customerPhone.replace(/[^\d]/g, "");
+      console.log("Looking up lead by phone digits:", digits);
       try {
         const { leads } = await getLeads({
-          filterByFormula: `{Phone} = "${result.customerPhone}"`,
+          filterByFormula: `FIND("${digits}", SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({Phone}, "-", ""), " ", ""), "(", ""), ")", ""))`,
           maxRecords: 1,
         });
         lead = leads[0] || null;

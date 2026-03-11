@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDemoCalls } from "@/lib/demo-data";
+import { normalizePhone } from "@/lib/utils";
 import { VapiCall, VapiCallStatus, Lead } from "@/types";
 
 function isDemoMode() {
@@ -29,7 +30,8 @@ function mapVapiResponse(vapiCall: any, leadsByPhone: Map<string, Lead>): VapiCa
   }
 
   const customerPhone = vapiCall.customer?.number || "";
-  const lead = customerPhone ? leadsByPhone.get(customerPhone) : undefined;
+  const normalizedCustomer = customerPhone ? normalizePhone(customerPhone) : "";
+  const lead = normalizedCustomer ? leadsByPhone.get(normalizedCustomer) : undefined;
 
   return {
     id: vapiCall.id,
@@ -59,11 +61,11 @@ export async function GET() {
       getLeads({ maxRecords: 100 }),
     ]);
 
-    // Build phone-to-lead lookup map
+    // Build normalized phone-to-lead lookup map
     const leadsByPhone = new Map<string, Lead>();
     for (const lead of leads) {
       if (lead.phone) {
-        leadsByPhone.set(lead.phone, lead);
+        leadsByPhone.set(normalizePhone(lead.phone), lead);
       }
     }
 
