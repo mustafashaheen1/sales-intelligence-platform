@@ -10,9 +10,205 @@ import {
   Mail, Phone, Building2, Briefcase, Globe, Linkedin,
   BrainCircuit, MessageSquare, PhoneCall, FileEdit, Loader2,
   CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
+  Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
+
+interface EnrichmentParsed {
+  company_summary?: string;
+  industry?: string;
+  estimated_company_size?: string;
+  estimated_revenue?: string;
+  lead_role_analysis?: string;
+  seniority_level?: string;
+  likely_pain_points?: string[];
+  ai_automation_opportunities?: string[];
+  recommended_approach?: string;
+  talking_points?: string[];
+  icp_fit_score?: number;
+  icp_fit_reason?: string;
+  [key: string]: any;
+}
+
+function parseEnrichmentData(raw: string): EnrichmentParsed | null {
+  try {
+    const outer = JSON.parse(raw);
+    if (outer.answer && typeof outer.answer === "string") {
+      return JSON.parse(outer.answer);
+    }
+    if (outer.answer && typeof outer.answer === "object") {
+      return outer.answer;
+    }
+    return outer;
+  } catch {
+    return null;
+  }
+}
+
+function getIcpColor(score: number): { bg: string; text: string; border: string; bar: string } {
+  if (score >= 8) return { bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20", bar: "bg-emerald-500" };
+  if (score >= 5) return { bg: "bg-amber-500/10", text: "text-amber-500", border: "border-amber-500/20", bar: "bg-amber-500" };
+  return { bg: "bg-red-500/10", text: "text-red-500", border: "border-red-500/20", bar: "bg-red-500" };
+}
+
+function EnrichmentDataCard({ enrichmentData, enrichedAt }: { enrichmentData: string; enrichedAt?: string }) {
+  const data = useMemo(() => parseEnrichmentData(enrichmentData), [enrichmentData]);
+
+  if (!data) return null;
+
+  const icpScore = typeof data.icp_fit_score === "number" ? data.icp_fit_score : null;
+  const icpColor = icpScore !== null ? getIcpColor(icpScore) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" /> Enrichment Insights
+        </CardTitle>
+        {enrichedAt && (
+          <span className="text-xs text-muted-foreground">{formatDate(enrichedAt)}</span>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* ICP Fit Score */}
+        {icpScore !== null && icpColor && (
+          <div className={cn("p-3 rounded-lg border", icpColor.bg, icpColor.border)}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <Target className={cn("h-4 w-4", icpColor.text)} /> ICP Fit Score
+              </span>
+              <span className={cn("text-lg font-bold", icpColor.text)}>{icpScore}/10</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-background/50 overflow-hidden">
+              <div
+                className={cn("h-full rounded-full transition-all duration-500", icpColor.bar)}
+                style={{ width: `${(icpScore / 10) * 100}%` }}
+              />
+            </div>
+            {data.icp_fit_reason && (
+              <p className="text-xs text-muted-foreground mt-2">{data.icp_fit_reason}</p>
+            )}
+          </div>
+        )}
+
+        {/* Company Overview Grid */}
+        {(data.company_summary || data.industry || data.estimated_company_size || data.estimated_revenue) && (
+          <div>
+            <h4 className="text-sm font-medium mb-3 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-primary" /> Company Overview
+            </h4>
+            {data.company_summary && (
+              <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{data.company_summary}</p>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {data.industry && (
+                <div className="p-2.5 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                    <Factory className="h-3 w-3" /> Industry
+                  </span>
+                  <p className="text-sm font-medium mt-1">{data.industry}</p>
+                </div>
+              )}
+              {data.estimated_company_size && (
+                <div className="p-2.5 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Company Size
+                  </span>
+                  <p className="text-sm font-medium mt-1">{data.estimated_company_size}</p>
+                </div>
+              )}
+              {data.estimated_revenue && (
+                <div className="p-2.5 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" /> Est. Revenue
+                  </span>
+                  <p className="text-sm font-medium mt-1">{data.estimated_revenue}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Lead Role Analysis */}
+        {(data.lead_role_analysis || data.seniority_level) && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <UserCheck className="h-3.5 w-3.5 text-primary" /> Lead Role Analysis
+            </h4>
+            {data.seniority_level && (
+              <Badge variant="outline" className="mb-2 text-xs">{data.seniority_level}</Badge>
+            )}
+            {data.lead_role_analysis && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{data.lead_role_analysis}</p>
+            )}
+          </div>
+        )}
+
+        {/* Pain Points */}
+        {data.likely_pain_points && data.likely_pain_points.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-500" /> Likely Pain Points
+            </h4>
+            <ul className="space-y-1.5">
+              {data.likely_pain_points.map((point, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5 shrink-0">-</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* AI Automation Opportunities */}
+        {data.ai_automation_opportunities && data.ai_automation_opportunities.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-violet-500" /> AI Automation Opportunities
+            </h4>
+            <ul className="space-y-1.5">
+              {data.ai_automation_opportunities.map((opp, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-violet-500 mt-0.5 shrink-0">+</span>
+                  <span>{opp}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Recommended Approach */}
+        {data.recommended_approach && (
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+            <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5 text-primary" /> Recommended Approach
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{data.recommended_approach}</p>
+          </div>
+        )}
+
+        {/* Talking Points */}
+        {data.talking_points && data.talking_points.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5 text-primary" /> Talking Points
+            </h4>
+            <ul className="space-y-1.5">
+              {data.talking_points.map((point, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">{i + 1}.</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 interface LeadDetailCardProps {
   lead: Lead;
@@ -276,57 +472,7 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
       )}
 
       {/* Enrichment Data */}
-      {(lead.companySize || lead.industry || lead.companyLinkedin || lead.enrichmentData) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> Enrichment Data
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              {lead.industry && (
-                <div className="flex items-start gap-2">
-                  <Factory className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs text-muted-foreground">Industry</span>
-                    <p className="text-sm">{lead.industry}</p>
-                  </div>
-                </div>
-              )}
-              {lead.companySize && (
-                <div className="flex items-start gap-2">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs text-muted-foreground">Company Size</span>
-                    <p className="text-sm">{lead.companySize}</p>
-                  </div>
-                </div>
-              )}
-              {lead.companyLinkedin && (
-                <div className="flex items-start gap-2">
-                  <Linkedin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs text-muted-foreground">Company LinkedIn</span>
-                    <a href={lead.companyLinkedin} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline block truncate">
-                      {lead.companyLinkedin}
-                    </a>
-                  </div>
-                </div>
-              )}
-              {lead.enrichedAt && (
-                <div className="flex items-start gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs text-muted-foreground">Enriched At</span>
-                    <p className="text-sm">{formatDate(lead.enrichedAt)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {lead.enrichmentData && <EnrichmentDataCard enrichmentData={lead.enrichmentData} enrichedAt={lead.enrichedAt} />}
 
       {/* Notes */}
       {lead.notes && (
