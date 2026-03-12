@@ -10,8 +10,8 @@ import {
   Mail, Phone, Building2, Briefcase, Globe, Linkedin,
   BrainCircuit, MessageSquare, PhoneCall, FileEdit, Loader2,
   CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
-  Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle, Search,
-  Newspaper, Code2, TrendingUp, Shield, Crosshair,
+  Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle,
+  Newspaper, Code2, TrendingUp, Shield, Crosshair, Search,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -399,17 +399,15 @@ interface LeadDetailCardProps {
   onGenerateOutreach: (type: string, tone: string) => Promise<any>;
   onScheduleCall: () => Promise<void>;
   onEnrich: () => Promise<void>;
-  onResearch: () => Promise<void>;
   companyData?: Company | null;
 }
 
-export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich, onResearch, companyData }: LeadDetailCardProps) {
+export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich, companyData }: LeadDetailCardProps) {
   const [scoring, setScoring] = useState(false);
   const [generatingOutreach, setGeneratingOutreach] = useState(false);
   const [outreachResult, setOutreachResult] = useState<{ subject?: string; message: string } | null>(null);
   const [schedulingCall, setSchedulingCall] = useState(false);
   const [enriching, setEnriching] = useState(false);
-  const [researching, setResearching] = useState(false);
 
   const handleScore = async () => {
     setScoring(true);
@@ -451,23 +449,11 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
     setEnriching(true);
     try {
       await onEnrich();
-      toast.success("Lead enriched!");
+      toast.success("Lead enriched with company research!");
     } catch {
       toast.error("Failed to enrich lead");
     } finally {
       setEnriching(false);
-    }
-  };
-
-  const handleResearch = async () => {
-    setResearching(true);
-    try {
-      await onResearch();
-      toast.success("Company researched!");
-    } catch {
-      toast.error("Failed to research company");
-    } finally {
-      setResearching(false);
     }
   };
 
@@ -625,13 +611,9 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
               {schedulingCall ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PhoneCall className="h-3.5 w-3.5 mr-1" />}
               Schedule Vapi Call
             </Button>
-            <Button size="sm" variant="outline" onClick={handleEnrich} disabled={enriching}>
+            <Button size="sm" variant="outline" onClick={handleEnrich} disabled={enriching || !(lead.name && (lead.email || lead.company))}>
               {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
               Enrich Lead
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleResearch} disabled={researching || !lead.company}>
-              {researching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Search className="h-3.5 w-3.5 mr-1" />}
-              Research Company
             </Button>
           </div>
 

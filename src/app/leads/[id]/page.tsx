@@ -62,14 +62,7 @@ export default function LeadDetailPage() {
     if (!res.ok) throw new Error("Failed to enrich");
     const data = await res.json();
     setLead(data.lead);
-  };
-
-  const handleResearch = async () => {
-    const res = await fetch(`/api/leads/${params.id}/research`, { method: "POST" });
-    if (!res.ok) throw new Error("Failed to research");
-    const data = await res.json();
-    setLead(data.lead);
-    setCompanyData(data.company);
+    if (data.company) setCompanyData(data.company);
   };
 
   const handleScheduleCall = async () => {
@@ -131,7 +124,6 @@ export default function LeadDetailPage() {
             onGenerateOutreach={handleGenerateOutreach}
             onScheduleCall={handleScheduleCall}
             onEnrich={handleEnrich}
-            onResearch={handleResearch}
             companyData={companyData}
           />
         </div>

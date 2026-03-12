@@ -72,7 +72,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     // Call Relevance AI with company data
-    const result = await researchCompany(company);
+    const result = await researchCompany(company.name);
     const output = result.output || result;
 
     // Save research results to Companies table
