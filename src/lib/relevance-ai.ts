@@ -1,4 +1,4 @@
-import { Lead } from "@/types";
+import { Lead, Company } from "@/types";
 
 export async function enrichLead(lead: Partial<Lead>): Promise<Record<string, any>> {
   const apiKey = process.env.RELEVANCE_AI_API_KEY;
@@ -38,7 +38,7 @@ export async function enrichLead(lead: Partial<Lead>): Promise<Record<string, an
   return response.json();
 }
 
-export async function researchCompany(lead: Partial<Lead>): Promise<Record<string, any>> {
+export async function researchCompany(company: Partial<Company>): Promise<Record<string, any>> {
   const apiKey = process.env.RELEVANCE_AI_API_KEY;
   const projectId = process.env.RELEVANCE_AI_PROJECT_ID;
   const region = process.env.RELEVANCE_AI_REGION || "d7b62b";
@@ -58,9 +58,9 @@ export async function researchCompany(lead: Partial<Lead>): Promise<Record<strin
     },
     body: JSON.stringify({
       params: {
-        company_name: lead.company || "",
-        company_website: lead.website || "",
-        industry: lead.industry || "",
+        company_name: company.name || "",
+        company_website: company.website || "",
+        industry: company.industry || "",
       },
       project: projectId,
     }),

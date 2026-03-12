@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Mail, Phone, Calendar, FileText, RotateCw, StickyNote } from "lucide-react";
 import { formatRelativeDate } from "@/lib/utils";
-import { ActivityType } from "@/types";
+import { ActivityType, Company } from "@/types";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
 
 const activityIcons: Record<ActivityType, React.ElementType> = {
   "Email Sent": Mail,
@@ -27,6 +28,17 @@ export default function LeadDetailPage() {
   const router = useRouter();
   const { lead, loading, refetch, setLead } = useLead(params.id as string);
   const { activities, loading: activitiesLoading } = useActivities(params.id as string);
+  const [companyData, setCompanyData] = useState<Company | null>(null);
+
+  // Auto-fetch company data if lead has a linked company
+  useEffect(() => {
+    if (lead?.companyLinkId && !companyData) {
+      fetch(`/api/companies/${lead.companyLinkId}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => { if (data?.company) setCompanyData(data.company); })
+        .catch(() => {});
+    }
+  }, [lead?.companyLinkId]);
 
   const handleScore = async () => {
     const res = await fetch(`/api/leads/${params.id}/score`, { method: "POST" });
@@ -57,6 +69,7 @@ export default function LeadDetailPage() {
     if (!res.ok) throw new Error("Failed to research");
     const data = await res.json();
     setLead(data.lead);
+    setCompanyData(data.company);
   };
 
   const handleScheduleCall = async () => {
@@ -119,6 +132,7 @@ export default function LeadDetailPage() {
             onScheduleCall={handleScheduleCall}
             onEnrich={handleEnrich}
             onResearch={handleResearch}
+            companyData={companyData}
           />
         </div>
 

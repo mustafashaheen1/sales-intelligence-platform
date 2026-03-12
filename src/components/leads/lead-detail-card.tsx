@@ -1,6 +1,6 @@
 "use client";
 
-import { Lead } from "@/types";
+import { Lead, Company } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -400,9 +400,10 @@ interface LeadDetailCardProps {
   onScheduleCall: () => Promise<void>;
   onEnrich: () => Promise<void>;
   onResearch: () => Promise<void>;
+  companyData?: Company | null;
 }
 
-export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich, onResearch }: LeadDetailCardProps) {
+export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich, onResearch, companyData }: LeadDetailCardProps) {
   const [scoring, setScoring] = useState(false);
   const [generatingOutreach, setGeneratingOutreach] = useState(false);
   const [outreachResult, setOutreachResult] = useState<{ subject?: string; message: string } | null>(null);
@@ -676,7 +677,7 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
       {lead.enrichmentData && <EnrichmentDataCard enrichmentData={lead.enrichmentData} enrichedAt={lead.enrichedAt} />}
 
       {/* Company Research */}
-      {lead.companyResearch && <CompanyResearchCard companyResearch={lead.companyResearch} researchedAt={lead.researchedAt} />}
+      {companyData?.companyResearch && <CompanyResearchCard companyResearch={companyData.companyResearch} researchedAt={companyData.researchedAt} />}
 
       {/* Notes */}
       {lead.notes && (

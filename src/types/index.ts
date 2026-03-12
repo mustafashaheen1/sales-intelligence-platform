@@ -34,8 +34,7 @@ export interface Lead {
   enrichmentData?: string;
   enrichedAt?: string;
   website?: string;
-  companyResearch?: string;
-  researchedAt?: string;
+  companyLinkId?: string;
   createdAt?: string;
 }
 
@@ -51,12 +50,13 @@ export interface Activity {
 
 export interface Company {
   id: string;
-  companyName: string;
+  name: string;
   website?: string;
   industry?: string;
   companySize?: string;
-  aiCompanyScore?: number;
-  aiAnalysis?: string;
+  linkedinUrl?: string;
+  companyResearch?: string;
+  researchedAt?: string;
 }
 
 export interface AIScoreResult {

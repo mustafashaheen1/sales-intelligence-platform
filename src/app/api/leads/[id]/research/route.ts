@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLead, updateLead } from "@/lib/airtable";
+import { getLead, updateLead, findCompanyByName, createCompany, updateCompany, getCompany } from "@/lib/airtable";
 import { researchCompany } from "@/lib/relevance-ai";
 import { getDemoLeads } from "@/lib/demo-data";
 
@@ -27,8 +27,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         strategic_recommendations: "Focus on demonstrating ROI through case studies and offer a pilot program to reduce adoption friction.",
       };
       return NextResponse.json({
-        lead: {
-          ...lead,
+        lead,
+        company: {
+          id: "comp_demo",
+          name: lead.company || "Unknown",
           companyResearch: JSON.stringify({ answer: JSON.stringify(mockResearch) }),
           researchedAt: new Date().toISOString().split("T")[0],
         },
@@ -45,20 +47,53 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "Lead has no company name for research" }, { status: 400 });
     }
 
-    const result = await researchCompany(lead);
+    // Find or create company in Companies table
+    let company = await findCompanyByName(lead.company);
 
+    if (!company) {
+      // Create new company record
+      company = await createCompany({
+        name: lead.company,
+        website: lead.website,
+        industry: lead.industry,
+        companySize: lead.companySize,
+        linkedinUrl: lead.companyLinkedin,
+      });
+    }
+
+    // If already researched, return existing data
+    if (company.companyResearch) {
+      // Link lead to company if not already linked
+      if (!lead.companyLinkId) {
+        const updatedLead = await updateLead(params.id, { companyLinkId: company.id });
+        return NextResponse.json({ lead: updatedLead, company });
+      }
+      return NextResponse.json({ lead, company });
+    }
+
+    // Call Relevance AI with company data
+    const result = await researchCompany(company);
     const output = result.output || result;
 
-    const updateData: Record<string, any> = {
+    // Save research results to Companies table
+    const companyUpdate: Record<string, any> = {
       companyResearch: JSON.stringify(output),
       researchedAt: new Date().toISOString().split("T")[0],
     };
 
-    // Update industry if research provides it and lead doesn't have it
-    if (output.industry && !lead.industry) updateData.industry = output.industry;
+    // Update company fields from research if missing
+    if (output.industry && !company.industry) companyUpdate.industry = output.industry;
+    if (output.company_size && !company.companySize) companyUpdate.companySize = output.company_size;
 
-    const updatedLead = await updateLead(params.id, updateData);
-    return NextResponse.json({ lead: updatedLead });
+    const updatedCompany = await updateCompany(company.id, companyUpdate);
+
+    // Link lead to company if not already linked
+    let updatedLead = lead;
+    if (!lead.companyLinkId) {
+      updatedLead = await updateLead(params.id, { companyLinkId: company.id });
+    }
+
+    return NextResponse.json({ lead: updatedLead, company: updatedCompany });
   } catch (error) {
     console.error("Error researching company:", error);
     return NextResponse.json({ error: "Failed to research company" }, { status: 500 });

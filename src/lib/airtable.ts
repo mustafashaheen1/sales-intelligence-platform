@@ -1,5 +1,5 @@
 import Airtable from "airtable";
-import { Lead, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, ActivityType, ActivityOutcome } from "@/types";
+import { Lead, Company, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, ActivityType, ActivityOutcome } from "@/types";
 import { normalizePhone } from "@/lib/utils";
 
 const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
@@ -49,8 +49,7 @@ function mapRecordToLead(record: any): Lead {
     enrichmentData: record.get("Enrichment Data") || undefined,
     enrichedAt: record.get("Enriched At") || undefined,
     website: record.get("Website") || undefined,
-    companyResearch: record.get("Company Research") || undefined,
-    researchedAt: record.get("Researched At") || undefined,
+    companyLinkId: record.get("Company Link")?.[0] || undefined,
     createdAt: record.get("Created") || undefined,
   };
 }
@@ -147,8 +146,7 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.enrichmentData !== undefined) fields["Enrichment Data"] = data.enrichmentData;
   if (data.enrichedAt !== undefined) fields["Enriched At"] = data.enrichedAt;
   if (data.website !== undefined) fields["Website"] = data.website;
-  if (data.companyResearch !== undefined) fields["Company Research"] = data.companyResearch;
-  if (data.researchedAt !== undefined) fields["Researched At"] = data.researchedAt;
+  if (data.companyLinkId !== undefined) fields["Company Link"] = [data.companyLinkId];
 
   const record = await base("Leads").update(id, fields);
   return mapRecordToLead(record);
@@ -169,6 +167,62 @@ export async function getActivities(leadId?: string): Promise<Activity[]> {
   }
   const records = await base("Activities").select(query).firstPage();
   return records.map(mapRecordToActivity);
+}
+
+// --- Companies ---
+
+function mapRecordToCompany(record: any): Company {
+  return {
+    id: record.id,
+    name: record.get("Name") || "",
+    website: record.get("Website") || undefined,
+    industry: record.get("Industry") || undefined,
+    companySize: record.get("Company Size") || undefined,
+    linkedinUrl: record.get("LinkedIn URL") || undefined,
+    companyResearch: record.get("Company Research") || undefined,
+    researchedAt: record.get("Researched At") || undefined,
+  };
+}
+
+export async function findCompanyByName(name: string): Promise<Company | null> {
+  const base = getBase();
+  const records = await base("Companies")
+    .select({ filterByFormula: `{Name} = "${name.replace(/"/g, '\\"')}"`, maxRecords: 1 })
+    .firstPage();
+  return records.length > 0 ? mapRecordToCompany(records[0]) : null;
+}
+
+export async function getCompany(id: string): Promise<Company> {
+  const base = getBase();
+  const record = await base("Companies").find(id);
+  return mapRecordToCompany(record);
+}
+
+export async function createCompany(data: Partial<Company>): Promise<Company> {
+  const base = getBase();
+  const fields: any = { Name: data.name };
+  if (data.website) fields["Website"] = data.website;
+  if (data.industry) fields["Industry"] = data.industry;
+  if (data.companySize) fields["Company Size"] = data.companySize;
+  if (data.linkedinUrl) fields["LinkedIn URL"] = data.linkedinUrl;
+  if (data.companyResearch) fields["Company Research"] = data.companyResearch;
+  if (data.researchedAt) fields["Researched At"] = data.researchedAt;
+  const record = await base("Companies").create(fields);
+  return mapRecordToCompany(record);
+}
+
+export async function updateCompany(id: string, data: Partial<Company>): Promise<Company> {
+  const base = getBase();
+  const fields: any = {};
+  if (data.name !== undefined) fields["Name"] = data.name;
+  if (data.website !== undefined) fields["Website"] = data.website;
+  if (data.industry !== undefined) fields["Industry"] = data.industry;
+  if (data.companySize !== undefined) fields["Company Size"] = data.companySize;
+  if (data.linkedinUrl !== undefined) fields["LinkedIn URL"] = data.linkedinUrl;
+  if (data.companyResearch !== undefined) fields["Company Research"] = data.companyResearch;
+  if (data.researchedAt !== undefined) fields["Researched At"] = data.researchedAt;
+  const record = await base("Companies").update(id, fields);
+  return mapRecordToCompany(record);
 }
 
 export async function createActivity(data: {
