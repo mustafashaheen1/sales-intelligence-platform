@@ -12,9 +12,12 @@ import {
   CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
   Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle,
   Newspaper, Code2, TrendingUp, Shield, Crosshair, Search,
+  ChevronDown, ChevronUp, Copy, Clock, Hash, HelpCircle, ClipboardList,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
+
+// --- Parsers ---
 
 interface EnrichmentParsed {
   company_summary?: string;
@@ -32,185 +35,6 @@ interface EnrichmentParsed {
   [key: string]: any;
 }
 
-function parseEnrichmentData(raw: string): EnrichmentParsed | null {
-  try {
-    const outer = JSON.parse(raw);
-    if (outer.answer && typeof outer.answer === "string") {
-      return JSON.parse(outer.answer);
-    }
-    if (outer.answer && typeof outer.answer === "object") {
-      return outer.answer;
-    }
-    return outer;
-  } catch {
-    return null;
-  }
-}
-
-function getIcpColor(score: number): { bg: string; text: string; border: string; bar: string } {
-  if (score >= 8) return { bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20", bar: "bg-emerald-500" };
-  if (score >= 5) return { bg: "bg-amber-500/10", text: "text-amber-500", border: "border-amber-500/20", bar: "bg-amber-500" };
-  return { bg: "bg-red-500/10", text: "text-red-500", border: "border-red-500/20", bar: "bg-red-500" };
-}
-
-function EnrichmentDataCard({ enrichmentData, enrichedAt }: { enrichmentData: string; enrichedAt?: string }) {
-  const data = useMemo(() => parseEnrichmentData(enrichmentData), [enrichmentData]);
-
-  if (!data) return null;
-
-  const icpScore = typeof data.icp_fit_score === "number" ? data.icp_fit_score : null;
-  const icpColor = icpScore !== null ? getIcpColor(icpScore) : null;
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" /> Enrichment Insights
-        </CardTitle>
-        {enrichedAt && (
-          <span className="text-xs text-muted-foreground">{formatDate(enrichedAt)}</span>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {/* ICP Fit Score */}
-        {icpScore !== null && icpColor && (
-          <div className={cn("p-3 rounded-lg border", icpColor.bg, icpColor.border)}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium flex items-center gap-1.5">
-                <Target className={cn("h-4 w-4", icpColor.text)} /> ICP Fit Score
-              </span>
-              <span className={cn("text-lg font-bold", icpColor.text)}>{icpScore}/10</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-background/50 overflow-hidden">
-              <div
-                className={cn("h-full rounded-full transition-all duration-500", icpColor.bar)}
-                style={{ width: `${(icpScore / 10) * 100}%` }}
-              />
-            </div>
-            {data.icp_fit_reason && (
-              <p className="text-xs text-muted-foreground mt-2">{data.icp_fit_reason}</p>
-            )}
-          </div>
-        )}
-
-        {/* Company Overview Grid */}
-        {(data.company_summary || data.industry || data.estimated_company_size || data.estimated_revenue) && (
-          <div>
-            <h4 className="text-sm font-medium mb-3 flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5 text-primary" /> Company Overview
-            </h4>
-            {data.company_summary && (
-              <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{data.company_summary}</p>
-            )}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {data.industry && (
-                <div className="p-2.5 rounded-lg bg-muted/30 border">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
-                    <Factory className="h-3 w-3" /> Industry
-                  </span>
-                  <p className="text-sm font-medium mt-1">{data.industry}</p>
-                </div>
-              )}
-              {data.estimated_company_size && (
-                <div className="p-2.5 rounded-lg bg-muted/30 border">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
-                    <Users className="h-3 w-3" /> Company Size
-                  </span>
-                  <p className="text-sm font-medium mt-1">{data.estimated_company_size}</p>
-                </div>
-              )}
-              {data.estimated_revenue && (
-                <div className="p-2.5 rounded-lg bg-muted/30 border">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" /> Est. Revenue
-                  </span>
-                  <p className="text-sm font-medium mt-1">{data.estimated_revenue}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Lead Role Analysis */}
-        {(data.lead_role_analysis || data.seniority_level) && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-              <UserCheck className="h-3.5 w-3.5 text-primary" /> Lead Role Analysis
-            </h4>
-            {data.seniority_level && (
-              <Badge variant="outline" className="mb-2 text-xs">{data.seniority_level}</Badge>
-            )}
-            {data.lead_role_analysis && (
-              <p className="text-sm text-muted-foreground leading-relaxed">{data.lead_role_analysis}</p>
-            )}
-          </div>
-        )}
-
-        {/* Pain Points */}
-        {data.likely_pain_points && data.likely_pain_points.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5 text-amber-500" /> Likely Pain Points
-            </h4>
-            <ul className="space-y-1.5">
-              {data.likely_pain_points.map((point, i) => (
-                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="text-amber-500 mt-0.5 shrink-0">-</span>
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* AI Automation Opportunities */}
-        {data.ai_automation_opportunities && data.ai_automation_opportunities.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5 text-violet-500" /> AI Automation Opportunities
-            </h4>
-            <ul className="space-y-1.5">
-              {data.ai_automation_opportunities.map((opp, i) => (
-                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="text-violet-500 mt-0.5 shrink-0">+</span>
-                  <span>{opp}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Recommended Approach */}
-        {data.recommended_approach && (
-          <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
-            <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
-              <Lightbulb className="h-3.5 w-3.5 text-primary" /> Recommended Approach
-            </h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{data.recommended_approach}</p>
-          </div>
-        )}
-
-        {/* Talking Points */}
-        {data.talking_points && data.talking_points.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-              <MessageCircle className="h-3.5 w-3.5 text-primary" /> Talking Points
-            </h4>
-            <ul className="space-y-1.5">
-              {data.talking_points.map((point, i) => (
-                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="text-primary mt-0.5 shrink-0">{i + 1}.</span>
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 interface CompanyResearchParsed {
   company_overview?: string;
   products_services?: string[];
@@ -225,7 +49,37 @@ interface CompanyResearchParsed {
   [key: string]: any;
 }
 
-function parseCompanyResearch(raw: string): CompanyResearchParsed | null {
+interface OutreachSequenceStep {
+  step: number;
+  channel: string;
+  timing: string;
+  subject?: string | null;
+  message: string;
+}
+
+interface ObjectionItem {
+  objection: string;
+  response: string;
+}
+
+interface MeetingAgendaItem {
+  duration: string;
+  topic: string;
+}
+
+interface OutreachParsed {
+  recommended_channel?: string;
+  approach_tone?: string;
+  best_time_to_reach?: string;
+  personalization_hooks?: string[];
+  outreach_sequence?: OutreachSequenceStep[];
+  objection_handling?: ObjectionItem[];
+  discovery_questions?: string[];
+  meeting_agenda?: MeetingAgendaItem[];
+  [key: string]: any;
+}
+
+function parseNestedJson<T>(raw: string): T | null {
   try {
     const outer = JSON.parse(raw);
     if (outer.answer && typeof outer.answer === "string") {
@@ -240,40 +94,146 @@ function parseCompanyResearch(raw: string): CompanyResearchParsed | null {
   }
 }
 
-function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearch: string; researchedAt?: string }) {
-  const data = useMemo(() => parseCompanyResearch(companyResearch), [companyResearch]);
+// --- Helper Components ---
 
-  if (!data) return null;
+function getIcpColor(score: number): { bg: string; text: string; border: string; bar: string } {
+  if (score >= 8) return { bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20", bar: "bg-emerald-500" };
+  if (score >= 5) return { bg: "bg-amber-500/10", text: "text-amber-500", border: "border-amber-500/20", bar: "bg-amber-500" };
+  return { bg: "bg-red-500/10", text: "text-red-500", border: "border-red-500/20", bar: "bg-red-500" };
+}
+
+function CollapsibleSection({ title, icon: Icon, iconColor, children, defaultOpen = false }: {
+  title: string;
+  icon: React.ElementType;
+  iconColor?: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between p-3 hover:bg-muted/30 transition-colors"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="text-sm font-medium flex items-center gap-1.5">
+          <Icon className={cn("h-3.5 w-3.5", iconColor || "text-primary")} /> {title}
+        </span>
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {open && <div className="px-3 pb-3 pt-0">{children}</div>}
+    </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard!");
+  };
+  return (
+    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={handleCopy}>
+      <Copy className="h-3 w-3" />
+    </Button>
+  );
+}
+
+// --- Section 1 & 2: Lead Profile + Company Intelligence (shown in EnrichmentDataCard) ---
+
+function EnrichmentDataCard({ enrichmentData, enrichedAt, companyResearch, researchedAt }: {
+  enrichmentData?: string;
+  enrichedAt?: string;
+  companyResearch?: string;
+  researchedAt?: string;
+}) {
+  const enrichData = useMemo(() => enrichmentData ? parseNestedJson<EnrichmentParsed>(enrichmentData) : null, [enrichmentData]);
+  const researchData = useMemo(() => companyResearch ? parseNestedJson<CompanyResearchParsed>(companyResearch) : null, [companyResearch]);
+
+  if (!enrichData && !researchData) return null;
+
+  const icpScore = enrichData && typeof enrichData.icp_fit_score === "number" ? enrichData.icp_fit_score : null;
+  const icpColor = icpScore !== null ? getIcpColor(icpScore) : null;
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
-          <Search className="h-4 w-4 text-primary" /> Company Research
+          <Sparkles className="h-4 w-4 text-primary" /> Intelligence Report
         </CardTitle>
-        {researchedAt && (
-          <span className="text-xs text-muted-foreground">{formatDate(researchedAt)}</span>
+        {enrichedAt && (
+          <span className="text-xs text-muted-foreground">{formatDate(enrichedAt)}</span>
         )}
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Company Overview */}
-        {data.company_overview && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5 text-primary" /> Company Overview
-            </h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{data.company_overview}</p>
+        {/* Section 3: ICP Analysis */}
+        {icpScore !== null && icpColor && (
+          <div className={cn("p-3 rounded-lg border", icpColor.bg, icpColor.border)}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <Target className={cn("h-4 w-4", icpColor.text)} /> ICP Fit Score
+              </span>
+              <span className={cn("text-lg font-bold", icpColor.text)}>{icpScore}/10</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-background/50 overflow-hidden">
+              <div
+                className={cn("h-full rounded-full transition-all duration-500", icpColor.bar)}
+                style={{ width: `${(icpScore / 10) * 100}%` }}
+              />
+            </div>
+            {enrichData?.icp_fit_reason && (
+              <p className="text-xs text-muted-foreground mt-2">{enrichData.icp_fit_reason}</p>
+            )}
           </div>
         )}
 
-        {/* Products & Services */}
-        {data.products_services && data.products_services.length > 0 && (
+        {/* Section 2: Company Intelligence */}
+        {(enrichData?.company_summary || researchData?.company_overview || enrichData?.industry || enrichData?.estimated_company_size || enrichData?.estimated_revenue) && (
+          <div>
+            <h4 className="text-sm font-medium mb-3 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-primary" /> Company Intelligence
+            </h4>
+            {(enrichData?.company_summary || researchData?.company_overview) && (
+              <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+                {researchData?.company_overview || enrichData?.company_summary}
+              </p>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {(enrichData?.industry || researchData?.industry) && (
+                <div className="p-2.5 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                    <Factory className="h-3 w-3" /> Industry
+                  </span>
+                  <p className="text-sm font-medium mt-1">{enrichData?.industry || researchData?.industry}</p>
+                </div>
+              )}
+              {enrichData?.estimated_company_size && (
+                <div className="p-2.5 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Company Size
+                  </span>
+                  <p className="text-sm font-medium mt-1">{enrichData.estimated_company_size}</p>
+                </div>
+              )}
+              {enrichData?.estimated_revenue && (
+                <div className="p-2.5 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" /> Est. Revenue
+                  </span>
+                  <p className="text-sm font-medium mt-1">{enrichData.estimated_revenue}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Products & Services from research */}
+        {researchData?.products_services && researchData.products_services.length > 0 && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <Briefcase className="h-3.5 w-3.5 text-primary" /> Products & Services
             </h4>
             <div className="flex flex-wrap gap-1.5">
-              {data.products_services.map((item, i) => (
+              {researchData.products_services.map((item, i) => (
                 <Badge key={i} variant="outline" className="text-xs">{item}</Badge>
               ))}
             </div>
@@ -281,23 +241,72 @@ function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearc
         )}
 
         {/* Target Market */}
-        {data.target_market && (
+        {researchData?.target_market && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <Crosshair className="h-3.5 w-3.5 text-primary" /> Target Market
             </h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{data.target_market}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{researchData.target_market}</p>
+          </div>
+        )}
+
+        {/* Section 1: Lead Role Analysis */}
+        {(enrichData?.lead_role_analysis || enrichData?.seniority_level) && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <UserCheck className="h-3.5 w-3.5 text-primary" /> Lead Role Analysis
+            </h4>
+            {enrichData?.seniority_level && (
+              <Badge variant="outline" className="mb-2 text-xs">{enrichData.seniority_level}</Badge>
+            )}
+            {enrichData?.lead_role_analysis && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{enrichData.lead_role_analysis}</p>
+            )}
+          </div>
+        )}
+
+        {/* Pain Points */}
+        {enrichData?.likely_pain_points && enrichData.likely_pain_points.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-500" /> Likely Pain Points
+            </h4>
+            <ul className="space-y-1.5">
+              {enrichData.likely_pain_points.map((point, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5 shrink-0">-</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* AI Automation Opportunities */}
+        {enrichData?.ai_automation_opportunities && enrichData.ai_automation_opportunities.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-violet-500" /> AI Automation Opportunities
+            </h4>
+            <ul className="space-y-1.5">
+              {enrichData.ai_automation_opportunities.map((opp, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-violet-500 mt-0.5 shrink-0">+</span>
+                  <span>{opp}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
         {/* Competitors */}
-        {data.competitors && data.competitors.length > 0 && (
+        {researchData?.competitors && researchData.competitors.length > 0 && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <Shield className="h-3.5 w-3.5 text-orange-500" /> Competitors
             </h4>
             <div className="flex flex-wrap gap-1.5">
-              {data.competitors.map((c, i) => (
+              {researchData.competitors.map((c, i) => (
                 <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
               ))}
             </div>
@@ -305,13 +314,13 @@ function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearc
         )}
 
         {/* Tech Stack */}
-        {data.tech_stack && data.tech_stack.length > 0 && (
+        {researchData?.tech_stack && researchData.tech_stack.length > 0 && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <Code2 className="h-3.5 w-3.5 text-violet-500" /> Tech Stack
             </h4>
             <div className="flex flex-wrap gap-1.5">
-              {data.tech_stack.map((t, i) => (
+              {researchData.tech_stack.map((t, i) => (
                 <Badge key={i} variant="outline" className="text-xs bg-violet-500/5 border-violet-500/20 text-violet-400">{t}</Badge>
               ))}
             </div>
@@ -319,13 +328,13 @@ function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearc
         )}
 
         {/* Growth Signals */}
-        {data.growth_signals && data.growth_signals.length > 0 && (
+        {researchData?.growth_signals && researchData.growth_signals.length > 0 && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <TrendingUp className="h-3.5 w-3.5 text-emerald-500" /> Growth Signals
             </h4>
             <ul className="space-y-1.5">
-              {data.growth_signals.map((signal, i) => (
+              {researchData.growth_signals.map((signal, i) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5 shrink-0">+</span>
                   <span>{signal}</span>
@@ -336,13 +345,13 @@ function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearc
         )}
 
         {/* Recent News */}
-        {data.recent_news && data.recent_news.length > 0 && (
+        {researchData?.recent_news && researchData.recent_news.length > 0 && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <Newspaper className="h-3.5 w-3.5 text-blue-500" /> Recent News
             </h4>
             <ul className="space-y-1.5">
-              {data.recent_news.map((news, i) => (
+              {researchData.recent_news.map((news, i) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                   <span className="text-blue-500 mt-0.5 shrink-0">&bull;</span>
                   <span>{news}</span>
@@ -353,23 +362,23 @@ function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearc
         )}
 
         {/* Company Culture */}
-        {data.company_culture && (
+        {researchData?.company_culture && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-primary" /> Company Culture
             </h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{data.company_culture}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{researchData.company_culture}</p>
           </div>
         )}
 
         {/* Potential Challenges */}
-        {data.potential_challenges && data.potential_challenges.length > 0 && (
+        {researchData?.potential_challenges && researchData.potential_challenges.length > 0 && (
           <div>
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <AlertCircle className="h-3.5 w-3.5 text-amber-500" /> Potential Challenges
             </h4>
             <ul className="space-y-1.5">
-              {data.potential_challenges.map((challenge, i) => (
+              {researchData.potential_challenges.map((challenge, i) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5 shrink-0">-</span>
                   <span>{challenge}</span>
@@ -379,13 +388,38 @@ function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearc
           </div>
         )}
 
-        {/* Strategic Recommendations */}
-        {data.strategic_recommendations && (
+        {/* Recommended Approach / Strategic Recommendations */}
+        {(enrichData?.recommended_approach || researchData?.strategic_recommendations) && (
           <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
             <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
               <Lightbulb className="h-3.5 w-3.5 text-primary" /> Strategic Recommendations
             </h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{data.strategic_recommendations}</p>
+            {enrichData?.recommended_approach && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{enrichData.recommended_approach}</p>
+            )}
+            {researchData?.strategic_recommendations && enrichData?.recommended_approach && (
+              <div className="border-t border-primary/10 my-2" />
+            )}
+            {researchData?.strategic_recommendations && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{researchData.strategic_recommendations}</p>
+            )}
+          </div>
+        )}
+
+        {/* Talking Points */}
+        {enrichData?.talking_points && enrichData.talking_points.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5 text-primary" /> Talking Points
+            </h4>
+            <ul className="space-y-1.5">
+              {enrichData.talking_points.map((point, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">{i + 1}.</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </CardContent>
@@ -393,19 +427,151 @@ function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearc
   );
 }
 
+// --- Section 4-8: Outreach Strategy Card ---
+
+function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }) {
+  const data = useMemo(() => parseNestedJson<OutreachParsed>(outreachStrategy), [outreachStrategy]);
+
+  if (!data) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Mail className="h-4 w-4 text-primary" /> Outreach Strategy
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Section 4: Strategy Overview */}
+        {(data.recommended_channel || data.approach_tone || data.best_time_to_reach) && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {data.recommended_channel && (
+              <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                  <Hash className="h-3 w-3" /> Channel
+                </span>
+                <Badge className="mt-1.5 text-xs">{data.recommended_channel}</Badge>
+              </div>
+            )}
+            {data.approach_tone && (
+              <div className="p-2.5 rounded-lg bg-muted/30 border">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                  <MessageSquare className="h-3 w-3" /> Tone
+                </span>
+                <p className="text-sm font-medium mt-1">{data.approach_tone}</p>
+              </div>
+            )}
+            {data.best_time_to_reach && (
+              <div className="p-2.5 rounded-lg bg-muted/30 border">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> Best Time
+                </span>
+                <p className="text-sm font-medium mt-1">{data.best_time_to_reach}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Personalization Hooks */}
+        {data.personalization_hooks && data.personalization_hooks.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Target className="h-3.5 w-3.5 text-primary" /> Personalization Hooks
+            </h4>
+            <ul className="space-y-1.5">
+              {data.personalization_hooks.map((hook, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+                  <span>{hook}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Section 5: Outreach Sequence (collapsible) */}
+        {data.outreach_sequence && data.outreach_sequence.length > 0 && (
+          <CollapsibleSection title={`Outreach Sequence (${data.outreach_sequence.length} steps)`} icon={ArrowRight} defaultOpen>
+            <div className="space-y-3">
+              {data.outreach_sequence.map((step, i) => (
+                <div key={i} className="relative border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">Step {step.step || i + 1}</Badge>
+                      <Badge variant="secondary" className="text-xs">{step.channel}</Badge>
+                      <span className="text-xs text-muted-foreground">{step.timing}</span>
+                    </div>
+                    <CopyButton text={step.subject ? `Subject: ${step.subject}\n\n${step.message}` : step.message} />
+                  </div>
+                  {step.subject && (
+                    <p className="text-sm font-medium mb-1">Subject: {step.subject}</p>
+                  )}
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{step.message}</p>
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Section 6: Objection Handling (collapsible) */}
+        {data.objection_handling && data.objection_handling.length > 0 && (
+          <CollapsibleSection title={`Objection Handling (${data.objection_handling.length})`} icon={Shield} iconColor="text-orange-500">
+            <div className="space-y-3">
+              {data.objection_handling.map((item, i) => (
+                <div key={i} className="border rounded-lg p-3">
+                  <p className="text-sm font-medium text-orange-400 mb-1.5">&ldquo;{item.objection}&rdquo;</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{item.response}</p>
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Section 7: Discovery Questions (collapsible) */}
+        {data.discovery_questions && data.discovery_questions.length > 0 && (
+          <CollapsibleSection title={`Discovery Questions (${data.discovery_questions.length})`} icon={HelpCircle} iconColor="text-blue-500">
+            <ul className="space-y-2">
+              {data.discovery_questions.map((q, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-blue-500 mt-0.5 shrink-0 font-medium">{i + 1}.</span>
+                  <span>{q}</span>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        )}
+
+        {/* Section 8: Meeting Agenda (collapsible) */}
+        {data.meeting_agenda && data.meeting_agenda.length > 0 && (
+          <CollapsibleSection title="Meeting Agenda" icon={ClipboardList} iconColor="text-emerald-500">
+            <div className="space-y-2">
+              {data.meeting_agenda.map((item, i) => (
+                <div key={i} className="flex items-start gap-3 py-1.5">
+                  <Badge variant="outline" className="text-xs shrink-0 bg-emerald-500/5 border-emerald-500/20 text-emerald-400">{item.duration}</Badge>
+                  <p className="text-sm text-muted-foreground">{item.topic}</p>
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Main Component ---
+
 interface LeadDetailCardProps {
   lead: Lead;
   onScore: () => Promise<void>;
-  onGenerateOutreach: (type: string, tone: string) => Promise<any>;
   onScheduleCall: () => Promise<void>;
   onEnrich: () => Promise<void>;
   companyData?: Company | null;
+  enrichProgress?: string;
 }
 
-export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich, companyData }: LeadDetailCardProps) {
+export function LeadDetailCard({ lead, onScore, onScheduleCall, onEnrich, companyData, enrichProgress }: LeadDetailCardProps) {
   const [scoring, setScoring] = useState(false);
-  const [generatingOutreach, setGeneratingOutreach] = useState(false);
-  const [outreachResult, setOutreachResult] = useState<{ subject?: string; message: string } | null>(null);
   const [schedulingCall, setSchedulingCall] = useState(false);
   const [enriching, setEnriching] = useState(false);
 
@@ -418,18 +584,6 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
       toast.error("Failed to score lead");
     } finally {
       setScoring(false);
-    }
-  };
-
-  const handleGenerateOutreach = async (type: string) => {
-    setGeneratingOutreach(true);
-    try {
-      const result = await onGenerateOutreach(type, "professional");
-      setOutreachResult(result);
-    } catch {
-      toast.error("Failed to generate outreach");
-    } finally {
-      setGeneratingOutreach(false);
     }
   };
 
@@ -449,21 +603,11 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
     setEnriching(true);
     try {
       await onEnrich();
-      toast.success("Lead enriched with company research!");
+      toast.success("Lead enriched with outreach strategy!");
     } catch {
       toast.error("Failed to enrich lead");
     } finally {
       setEnriching(false);
-    }
-  };
-
-  const copyOutreach = () => {
-    if (outreachResult) {
-      const text = outreachResult.subject
-        ? `Subject: ${outreachResult.subject}\n\n${outreachResult.message}`
-        : outreachResult.message;
-      navigator.clipboard.writeText(text);
-      toast.success("Copied to clipboard!");
     }
   };
 
@@ -597,36 +741,21 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2 flex-wrap">
-            <Button size="sm" variant="outline" onClick={() => handleGenerateOutreach("email")} disabled={generatingOutreach}>
-              {generatingOutreach ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
-              Generate Email
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => handleGenerateOutreach("linkedin")} disabled={generatingOutreach}>
-              <Linkedin className="h-3.5 w-3.5 mr-1" /> LinkedIn Message
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => handleGenerateOutreach("sms")} disabled={generatingOutreach}>
-              <MessageSquare className="h-3.5 w-3.5 mr-1" /> SMS
-            </Button>
             <Button size="sm" variant="outline" onClick={handleScheduleCall} disabled={schedulingCall}>
               {schedulingCall ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PhoneCall className="h-3.5 w-3.5 mr-1" />}
               Schedule Vapi Call
             </Button>
             <Button size="sm" variant="outline" onClick={handleEnrich} disabled={enriching || !(lead.name && (lead.email || lead.company))}>
               {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
-              Enrich Lead
+              {enriching ? (enrichProgress || "Enriching...") : "Enrich Lead"}
             </Button>
           </div>
 
-          {outreachResult && (
-            <div className="mt-4 p-4 rounded-lg border bg-muted/30">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Generated Message</span>
-                <Button size="sm" variant="ghost" onClick={copyOutreach}>Copy</Button>
-              </div>
-              {outreachResult.subject && (
-                <p className="text-sm font-medium mb-1">Subject: {outreachResult.subject}</p>
-              )}
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{outreachResult.message}</p>
+          {/* Enrichment progress indicator */}
+          {enriching && enrichProgress && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+              <span className="text-xs text-muted-foreground">{enrichProgress}</span>
             </div>
           )}
         </CardContent>
@@ -655,11 +784,18 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
         </Card>
       )}
 
-      {/* Enrichment Data */}
-      {lead.enrichmentData && <EnrichmentDataCard enrichmentData={lead.enrichmentData} enrichedAt={lead.enrichedAt} />}
+      {/* Intelligence Report (combined enrichment + company research) */}
+      {(lead.enrichmentData || companyData?.companyResearch) && (
+        <EnrichmentDataCard
+          enrichmentData={lead.enrichmentData}
+          enrichedAt={lead.enrichedAt}
+          companyResearch={companyData?.companyResearch}
+          researchedAt={companyData?.researchedAt}
+        />
+      )}
 
-      {/* Company Research */}
-      {companyData?.companyResearch && <CompanyResearchCard companyResearch={companyData.companyResearch} researchedAt={companyData.researchedAt} />}
+      {/* Outreach Strategy */}
+      {lead.outreachStrategy && <OutreachStrategyCard outreachStrategy={lead.outreachStrategy} />}
 
       {/* Notes */}
       {lead.notes && (

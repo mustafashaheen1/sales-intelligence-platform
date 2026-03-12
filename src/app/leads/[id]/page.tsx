@@ -47,16 +47,6 @@ export default function LeadDetailPage() {
     setLead(data.lead);
   };
 
-  const handleGenerateOutreach = async (type: string, tone: string) => {
-    const res = await fetch(`/api/leads/${params.id}/outreach`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, tone }),
-    });
-    if (!res.ok) throw new Error("Failed to generate");
-    return res.json();
-  };
-
   const handleEnrich = async () => {
     const res = await fetch(`/api/leads/${params.id}/enrich`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to enrich");
@@ -121,7 +111,6 @@ export default function LeadDetailPage() {
           <LeadDetailCard
             lead={lead}
             onScore={handleScore}
-            onGenerateOutreach={handleGenerateOutreach}
             onScheduleCall={handleScheduleCall}
             onEnrich={handleEnrich}
             companyData={companyData}

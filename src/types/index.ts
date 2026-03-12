@@ -35,6 +35,9 @@ export interface Lead {
   enrichedAt?: string;
   website?: string;
   companyLinkId?: string;
+  outreachStrategy?: string;
+  recommendedChannel?: string;
+  approachTone?: string;
   createdAt?: string;
 }
 
