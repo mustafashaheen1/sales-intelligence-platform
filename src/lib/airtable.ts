@@ -48,6 +48,9 @@ function mapRecordToLead(record: any): Lead {
     companyLinkedin: record.get("Company LinkedIn") || undefined,
     enrichmentData: record.get("Enrichment Data") || undefined,
     enrichedAt: record.get("Enriched At") || undefined,
+    website: record.get("Website") || undefined,
+    companyResearch: record.get("Company Research") || undefined,
+    researchedAt: record.get("Researched At") || undefined,
     createdAt: record.get("Created") || undefined,
   };
 }
@@ -143,6 +146,9 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.companyLinkedin !== undefined) fields["Company LinkedIn"] = data.companyLinkedin;
   if (data.enrichmentData !== undefined) fields["Enrichment Data"] = data.enrichmentData;
   if (data.enrichedAt !== undefined) fields["Enriched At"] = data.enrichedAt;
+  if (data.website !== undefined) fields["Website"] = data.website;
+  if (data.companyResearch !== undefined) fields["Company Research"] = data.companyResearch;
+  if (data.researchedAt !== undefined) fields["Researched At"] = data.researchedAt;
 
   const record = await base("Leads").update(id, fields);
   return mapRecordToLead(record);

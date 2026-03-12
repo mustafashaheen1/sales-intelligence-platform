@@ -10,7 +10,8 @@ import {
   Mail, Phone, Building2, Briefcase, Globe, Linkedin,
   BrainCircuit, MessageSquare, PhoneCall, FileEdit, Loader2,
   CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
-  Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle,
+  Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle, Search,
+  Newspaper, Code2, TrendingUp, Shield, Crosshair,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -210,20 +211,204 @@ function EnrichmentDataCard({ enrichmentData, enrichedAt }: { enrichmentData: st
   );
 }
 
+interface CompanyResearchParsed {
+  company_overview?: string;
+  products_services?: string[];
+  target_market?: string;
+  competitors?: string[];
+  recent_news?: string[];
+  tech_stack?: string[];
+  company_culture?: string;
+  growth_signals?: string[];
+  potential_challenges?: string[];
+  strategic_recommendations?: string;
+  [key: string]: any;
+}
+
+function parseCompanyResearch(raw: string): CompanyResearchParsed | null {
+  try {
+    const outer = JSON.parse(raw);
+    if (outer.answer && typeof outer.answer === "string") {
+      return JSON.parse(outer.answer);
+    }
+    if (outer.answer && typeof outer.answer === "object") {
+      return outer.answer;
+    }
+    return outer;
+  } catch {
+    return null;
+  }
+}
+
+function CompanyResearchCard({ companyResearch, researchedAt }: { companyResearch: string; researchedAt?: string }) {
+  const data = useMemo(() => parseCompanyResearch(companyResearch), [companyResearch]);
+
+  if (!data) return null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Search className="h-4 w-4 text-primary" /> Company Research
+        </CardTitle>
+        {researchedAt && (
+          <span className="text-xs text-muted-foreground">{formatDate(researchedAt)}</span>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Company Overview */}
+        {data.company_overview && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-primary" /> Company Overview
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{data.company_overview}</p>
+          </div>
+        )}
+
+        {/* Products & Services */}
+        {data.products_services && data.products_services.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Briefcase className="h-3.5 w-3.5 text-primary" /> Products & Services
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {data.products_services.map((item, i) => (
+                <Badge key={i} variant="outline" className="text-xs">{item}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Target Market */}
+        {data.target_market && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Crosshair className="h-3.5 w-3.5 text-primary" /> Target Market
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{data.target_market}</p>
+          </div>
+        )}
+
+        {/* Competitors */}
+        {data.competitors && data.competitors.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-orange-500" /> Competitors
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {data.competitors.map((c, i) => (
+                <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tech Stack */}
+        {data.tech_stack && data.tech_stack.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Code2 className="h-3.5 w-3.5 text-violet-500" /> Tech Stack
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {data.tech_stack.map((t, i) => (
+                <Badge key={i} variant="outline" className="text-xs bg-violet-500/5 border-violet-500/20 text-violet-400">{t}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Growth Signals */}
+        {data.growth_signals && data.growth_signals.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" /> Growth Signals
+            </h4>
+            <ul className="space-y-1.5">
+              {data.growth_signals.map((signal, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-emerald-500 mt-0.5 shrink-0">+</span>
+                  <span>{signal}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Recent News */}
+        {data.recent_news && data.recent_news.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Newspaper className="h-3.5 w-3.5 text-blue-500" /> Recent News
+            </h4>
+            <ul className="space-y-1.5">
+              {data.recent_news.map((news, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-blue-500 mt-0.5 shrink-0">&bull;</span>
+                  <span>{news}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Company Culture */}
+        {data.company_culture && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-primary" /> Company Culture
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{data.company_culture}</p>
+          </div>
+        )}
+
+        {/* Potential Challenges */}
+        {data.potential_challenges && data.potential_challenges.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-500" /> Potential Challenges
+            </h4>
+            <ul className="space-y-1.5">
+              {data.potential_challenges.map((challenge, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5 shrink-0">-</span>
+                  <span>{challenge}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Strategic Recommendations */}
+        {data.strategic_recommendations && (
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+            <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5 text-primary" /> Strategic Recommendations
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{data.strategic_recommendations}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface LeadDetailCardProps {
   lead: Lead;
   onScore: () => Promise<void>;
   onGenerateOutreach: (type: string, tone: string) => Promise<any>;
   onScheduleCall: () => Promise<void>;
   onEnrich: () => Promise<void>;
+  onResearch: () => Promise<void>;
 }
 
-export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich }: LeadDetailCardProps) {
+export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCall, onEnrich, onResearch }: LeadDetailCardProps) {
   const [scoring, setScoring] = useState(false);
   const [generatingOutreach, setGeneratingOutreach] = useState(false);
   const [outreachResult, setOutreachResult] = useState<{ subject?: string; message: string } | null>(null);
   const [schedulingCall, setSchedulingCall] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [researching, setResearching] = useState(false);
 
   const handleScore = async () => {
     setScoring(true);
@@ -270,6 +455,18 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
       toast.error("Failed to enrich lead");
     } finally {
       setEnriching(false);
+    }
+  };
+
+  const handleResearch = async () => {
+    setResearching(true);
+    try {
+      await onResearch();
+      toast.success("Company researched!");
+    } catch {
+      toast.error("Failed to research company");
+    } finally {
+      setResearching(false);
     }
   };
 
@@ -431,6 +628,10 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
               {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
               Enrich Lead
             </Button>
+            <Button size="sm" variant="outline" onClick={handleResearch} disabled={researching || !lead.company}>
+              {researching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Search className="h-3.5 w-3.5 mr-1" />}
+              Research Company
+            </Button>
           </div>
 
           {outreachResult && (
@@ -473,6 +674,9 @@ export function LeadDetailCard({ lead, onScore, onGenerateOutreach, onScheduleCa
 
       {/* Enrichment Data */}
       {lead.enrichmentData && <EnrichmentDataCard enrichmentData={lead.enrichmentData} enrichedAt={lead.enrichedAt} />}
+
+      {/* Company Research */}
+      {lead.companyResearch && <CompanyResearchCard companyResearch={lead.companyResearch} researchedAt={lead.researchedAt} />}
 
       {/* Notes */}
       {lead.notes && (

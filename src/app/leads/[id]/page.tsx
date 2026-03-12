@@ -52,6 +52,13 @@ export default function LeadDetailPage() {
     setLead(data.lead);
   };
 
+  const handleResearch = async () => {
+    const res = await fetch(`/api/leads/${params.id}/research`, { method: "POST" });
+    if (!res.ok) throw new Error("Failed to research");
+    const data = await res.json();
+    setLead(data.lead);
+  };
+
   const handleScheduleCall = async () => {
     if (!lead?.phone) {
       toast.error("No phone number available for this lead");
@@ -111,6 +118,7 @@ export default function LeadDetailPage() {
             onGenerateOutreach={handleGenerateOutreach}
             onScheduleCall={handleScheduleCall}
             onEnrich={handleEnrich}
+            onResearch={handleResearch}
           />
         </div>
 

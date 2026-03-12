@@ -33,6 +33,9 @@ export interface Lead {
   companyLinkedin?: string;
   enrichmentData?: string;
   enrichedAt?: string;
+  website?: string;
+  companyResearch?: string;
+  researchedAt?: string;
   createdAt?: string;
 }
 
