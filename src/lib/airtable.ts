@@ -174,7 +174,7 @@ export async function getActivities(leadId?: string): Promise<Activity[]> {
 function mapRecordToCompany(record: any): Company {
   return {
     id: record.id,
-    name: record.get("Name") || "",
+    name: record.get("Company Name") || "",
     website: record.get("Website") || undefined,
     industry: record.get("Industry") || undefined,
     companySize: record.get("Company Size") || undefined,
@@ -187,7 +187,7 @@ function mapRecordToCompany(record: any): Company {
 export async function findCompanyByName(name: string): Promise<Company | null> {
   const base = getBase();
   const records = await base("Companies")
-    .select({ filterByFormula: `{Name} = "${name.replace(/"/g, '\\"')}"`, maxRecords: 1 })
+    .select({ filterByFormula: `{Company Name} = "${name.replace(/"/g, '\\"')}"`, maxRecords: 1 })
     .firstPage();
   return records.length > 0 ? mapRecordToCompany(records[0]) : null;
 }
@@ -200,7 +200,7 @@ export async function getCompany(id: string): Promise<Company> {
 
 export async function createCompany(data: Partial<Company>): Promise<Company> {
   const base = getBase();
-  const fields: any = { Name: data.name };
+  const fields: any = { "Company Name": data.name };
   if (data.website) fields["Website"] = data.website;
   if (data.industry) fields["Industry"] = data.industry;
   if (data.companySize) fields["Company Size"] = data.companySize;
@@ -214,7 +214,7 @@ export async function createCompany(data: Partial<Company>): Promise<Company> {
 export async function updateCompany(id: string, data: Partial<Company>): Promise<Company> {
   const base = getBase();
   const fields: any = {};
-  if (data.name !== undefined) fields["Name"] = data.name;
+  if (data.name !== undefined) fields["Company Name"] = data.name;
   if (data.website !== undefined) fields["Website"] = data.website;
   if (data.industry !== undefined) fields["Industry"] = data.industry;
   if (data.companySize !== undefined) fields["Company Size"] = data.companySize;
