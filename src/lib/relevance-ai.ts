@@ -116,7 +116,7 @@ export async function generateOutreach(params: {
         company_revenue: params.company_revenue,
         pain_points: params.pain_points,
         ai_opportunities: params.ai_opportunities,
-        ideal_customer_profile_score: params.icp_fit_score,
+        icp_fit_score: params.icp_fit_score,
         message_type: params.message_type,
         tone: params.tone,
       },
