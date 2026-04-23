@@ -133,8 +133,8 @@ function parseOutreachStrategy(raw: string): any {
 // --- Helper Components ---
 
 function getIcpColor(score: number): { bg: string; text: string; border: string; bar: string } {
-  if (score >= 8) return { bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20", bar: "bg-emerald-500" };
-  if (score >= 5) return { bg: "bg-amber-500/10", text: "text-amber-500", border: "border-amber-500/20", bar: "bg-amber-500" };
+  if (score >= 80) return { bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20", bar: "bg-emerald-500" };
+  if (score >= 50) return { bg: "bg-amber-500/10", text: "text-amber-500", border: "border-amber-500/20", bar: "bg-amber-500" };
   return { bg: "bg-red-500/10", text: "text-red-500", border: "border-red-500/20", bar: "bg-red-500" };
 }
 
@@ -208,12 +208,12 @@ function EnrichmentDataCard({ enrichmentData, enrichedAt, companyResearch, resea
               <span className="text-sm font-medium flex items-center gap-1.5">
                 <Target className={cn("h-4 w-4", icpColor.text)} /> ICP Fit Score
               </span>
-              <span className={cn("text-lg font-bold", icpColor.text)}>{icpScore}/10</span>
+              <span className={cn("text-lg font-bold", icpColor.text)}>{icpScore}/100</span>
             </div>
             <div className="h-2 w-full rounded-full bg-background/50 overflow-hidden">
               <div
                 className={cn("h-full rounded-full transition-all duration-500", icpColor.bar)}
-                style={{ width: `${(icpScore / 10) * 100}%` }}
+                style={{ width: `${icpScore}%` }}
               />
             </div>
             {enrichData?.icp_fit_reason && (
