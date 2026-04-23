@@ -12,7 +12,7 @@ import {
   CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
   Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle,
   Newspaper, Code2, TrendingUp, Shield, Crosshair, Search,
-  ChevronDown, ChevronUp, Copy, Clock, Hash, HelpCircle, ClipboardList,
+  ChevronDown, ChevronUp, Copy, Clock, Hash, HelpCircle, ClipboardList, RotateCw,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -82,13 +82,49 @@ interface OutreachParsed {
 function parseNestedJson<T>(raw: string): T | null {
   try {
     const outer = JSON.parse(raw);
+
+    // Try outer.answer (string → parse again)
     if (outer.answer && typeof outer.answer === "string") {
-      return JSON.parse(outer.answer);
+      try { return JSON.parse(outer.answer); } catch {}
+      return outer.answer as unknown as T;
     }
+    // Try outer.answer (already object)
     if (outer.answer && typeof outer.answer === "object") {
       return outer.answer;
     }
+    // Try outer.output.answer (string)
+    if (outer.output?.answer && typeof outer.output.answer === "string") {
+      try { return JSON.parse(outer.output.answer); } catch {}
+    }
+    // Try outer.output.answer (object)
+    if (outer.output?.answer && typeof outer.output.answer === "object") {
+      return outer.output.answer;
+    }
+    // Try outer.output (object)
+    if (outer.output && typeof outer.output === "object") {
+      return outer.output;
+    }
     return outer;
+  } catch {
+    return null;
+  }
+}
+
+function parseOutreachStrategy(raw: string): any {
+  try {
+    const outer = JSON.parse(raw);
+    let content: any = outer.answer ?? outer.output?.answer ?? outer.output ?? outer;
+
+    if (typeof content === "string") {
+      content = content
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+      return JSON.parse(content);
+    }
+
+    return content;
   } catch {
     return null;
   }
@@ -430,9 +466,13 @@ function EnrichmentDataCard({ enrichmentData, enrichedAt, companyResearch, resea
 // --- Section 4-8: Outreach Strategy Card ---
 
 function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }) {
-  const data = useMemo(() => parseNestedJson<OutreachParsed>(outreachStrategy), [outreachStrategy]);
+  const data = useMemo(() => parseOutreachStrategy(outreachStrategy), [outreachStrategy]);
 
   if (!data) return null;
+
+  const objectionHandling = data.objection_handling;
+  const objectionIsObject = objectionHandling && !Array.isArray(objectionHandling) && typeof objectionHandling === "object";
+  const objectionIsArray = Array.isArray(objectionHandling) && objectionHandling.length > 0;
 
   return (
     <Card>
@@ -442,32 +482,19 @@ function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Section 4: Strategy Overview */}
+        {/* Header badges */}
         {(data.recommended_channel || data.approach_tone || data.best_time_to_reach) && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="flex flex-wrap gap-2 items-center">
             {data.recommended_channel && (
-              <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
-                  <Hash className="h-3 w-3" /> Channel
-                </span>
-                <Badge className="mt-1.5 text-xs">{data.recommended_channel}</Badge>
-              </div>
+              <Badge variant="secondary">{data.recommended_channel}</Badge>
             )}
             {data.approach_tone && (
-              <div className="p-2.5 rounded-lg bg-muted/30 border">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" /> Tone
-                </span>
-                <p className="text-sm font-medium mt-1">{data.approach_tone}</p>
-              </div>
+              <Badge variant="outline">{data.approach_tone}</Badge>
             )}
             {data.best_time_to_reach && (
-              <div className="p-2.5 rounded-lg bg-muted/30 border">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1">
-                  <Clock className="h-3 w-3" /> Best Time
-                </span>
-                <p className="text-sm font-medium mt-1">{data.best_time_to_reach}</p>
-              </div>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" /> {data.best_time_to_reach}
+              </span>
             )}
           </div>
         )}
@@ -478,8 +505,8 @@ function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }
             <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
               <Target className="h-3.5 w-3.5 text-primary" /> Personalization Hooks
             </h4>
-            <ul className="space-y-1.5">
-              {data.personalization_hooks.map((hook, i) => (
+            <ul className="space-y-1">
+              {data.personalization_hooks.map((hook: string, i: number) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                   <span className="text-primary mt-0.5 shrink-0">&bull;</span>
                   <span>{hook}</span>
@@ -489,70 +516,132 @@ function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }
           </div>
         )}
 
-        {/* Section 5: Outreach Sequence (collapsible) */}
-        {data.outreach_sequence && data.outreach_sequence.length > 0 && (
-          <CollapsibleSection title={`Outreach Sequence (${data.outreach_sequence.length} steps)`} icon={ArrowRight} defaultOpen>
-            <div className="space-y-3">
-              {data.outreach_sequence.map((step, i) => (
-                <div key={i} className="relative border rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">Step {step.step || i + 1}</Badge>
-                      <Badge variant="secondary" className="text-xs">{step.channel}</Badge>
-                      <span className="text-xs text-muted-foreground">{step.timing}</span>
-                    </div>
-                    <CopyButton text={step.subject ? `Subject: ${step.subject}\n\n${step.message}` : step.message} />
-                  </div>
-                  {step.subject && (
-                    <p className="text-sm font-medium mb-1">Subject: {step.subject}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{step.message}</p>
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* Section 6: Objection Handling (collapsible) */}
-        {data.objection_handling && data.objection_handling.length > 0 && (
-          <CollapsibleSection title={`Objection Handling (${data.objection_handling.length})`} icon={Shield} iconColor="text-orange-500">
-            <div className="space-y-3">
-              {data.objection_handling.map((item, i) => (
-                <div key={i} className="border rounded-lg p-3">
-                  <p className="text-sm font-medium text-orange-400 mb-1.5">&ldquo;{item.objection}&rdquo;</p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{item.response}</p>
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* Section 7: Discovery Questions (collapsible) */}
-        {data.discovery_questions && data.discovery_questions.length > 0 && (
-          <CollapsibleSection title={`Discovery Questions (${data.discovery_questions.length})`} icon={HelpCircle} iconColor="text-blue-500">
-            <ul className="space-y-2">
-              {data.discovery_questions.map((q, i) => (
+        {/* Value Propositions */}
+        {data.value_propositions && data.value_propositions.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Value Propositions
+            </h4>
+            <ul className="space-y-1">
+              {data.value_propositions.map((prop: string, i: number) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="text-blue-500 mt-0.5 shrink-0 font-medium">{i + 1}.</span>
+                  <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
+                  <span>{prop}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Discovery Questions */}
+        {data.discovery_questions && data.discovery_questions.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <HelpCircle className="h-3.5 w-3.5 text-primary" /> Discovery Questions
+            </h4>
+            <ul className="space-y-1">
+              {data.discovery_questions.map((q: string, i: number) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5 shrink-0 font-medium">{i + 1}.</span>
                   <span>{q}</span>
                 </li>
               ))}
             </ul>
-          </CollapsibleSection>
+          </div>
         )}
 
-        {/* Section 8: Meeting Agenda (collapsible) */}
-        {data.meeting_agenda && data.meeting_agenda.length > 0 && (
-          <CollapsibleSection title="Meeting Agenda" icon={ClipboardList} iconColor="text-emerald-500">
-            <div className="space-y-2">
-              {data.meeting_agenda.map((item, i) => (
-                <div key={i} className="flex items-start gap-3 py-1.5">
-                  <Badge variant="outline" className="text-xs shrink-0 bg-emerald-500/5 border-emerald-500/20 text-emerald-400">{item.duration}</Badge>
-                  <p className="text-sm text-muted-foreground">{item.topic}</p>
+        {/* Outreach Sequence */}
+        {data.outreach_sequence && data.outreach_sequence.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <ArrowRight className="h-3.5 w-3.5 text-primary" /> Outreach Sequence ({data.outreach_sequence.length} steps)
+            </h4>
+            <div className="space-y-3">
+              {data.outreach_sequence.map((step: any, i: number) => (
+                <div key={i} className="border rounded-lg p-3 relative">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">Step {step.step || i + 1}</Badge>
+                      {step.channel && <Badge variant="secondary" className="text-xs">{step.channel}</Badge>}
+                      {step.timing && <span className="text-xs text-muted-foreground">{step.timing}</span>}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 shrink-0"
+                      onClick={() => {
+                        const text = step.subject ? `Subject: ${step.subject}\n\n${step.message}` : step.message;
+                        navigator.clipboard.writeText(text || "");
+                        toast.success("Copied!");
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {step.subject && <p className="text-sm font-medium mb-1">Subject: {step.subject}</p>}
+                  {step.action && <p className="text-xs text-muted-foreground mb-1">Action: {step.action}</p>}
+                  {step.message && <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{step.message}</p>}
                 </div>
               ))}
             </div>
-          </CollapsibleSection>
+          </div>
+        )}
+
+        {/* Objection Handling — object (key: response) or array ({objection, response}) */}
+        {(objectionIsObject || objectionIsArray) && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-orange-500" /> Objection Handling
+            </h4>
+            <div className="space-y-2">
+              {objectionIsObject
+                ? Object.entries(objectionHandling).map(([objection, response]: [string, any], i) => (
+                    <div key={i} className="border rounded-lg p-2">
+                      <p className="text-xs font-medium text-orange-400 mb-1">
+                        &ldquo;{objection.replace(/_/g, " ")}&rdquo;
+                      </p>
+                      <p className="text-sm text-muted-foreground">{response}</p>
+                    </div>
+                  ))
+                : objectionHandling.map((item: any, i: number) => (
+                    <div key={i} className="border rounded-lg p-2">
+                      <p className="text-xs font-medium text-orange-400 mb-1">&ldquo;{item.objection}&rdquo;</p>
+                      <p className="text-sm text-muted-foreground">{item.response}</p>
+                    </div>
+                  ))}
+            </div>
+          </div>
+        )}
+
+        {/* Meeting Agenda — string or array */}
+        {data.meeting_agenda && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" /> Meeting Agenda
+            </h4>
+            {typeof data.meeting_agenda === "string" ? (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{data.meeting_agenda}</p>
+            ) : Array.isArray(data.meeting_agenda) ? (
+              <div className="space-y-2">
+                {(data.meeting_agenda as MeetingAgendaItem[]).map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 py-1.5">
+                    <Badge variant="outline" className="text-xs shrink-0 bg-emerald-500/5 border-emerald-500/20 text-emerald-400">{item.duration}</Badge>
+                    <p className="text-sm text-muted-foreground">{item.topic}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Follow-up Strategy */}
+        {data.follow_up_strategy && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <RotateCw className="h-3.5 w-3.5 text-primary" /> Follow-up Strategy
+            </h4>
+            <p className="text-sm text-muted-foreground">{data.follow_up_strategy}</p>
+          </div>
         )}
       </CardContent>
     </Card>
