@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const result = await scheduleVapiCall({ phoneNumber, leadName, leadCompany });
+    const result = await scheduleVapiCall({ phoneNumber, leadId, leadName, leadCompany });
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error scheduling call:", error);

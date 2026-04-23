@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseVapiWebhook } from "@/lib/vapi";
 import { triggerN8nWorkflow } from "@/lib/n8n";
-import { getLeads, updateLead } from "@/lib/airtable";
+import { getLead, getLeads, updateLead } from "@/lib/airtable";
 import { scoreLeadWithCallData } from "@/lib/langchain";
 
 function formatDuration(seconds: number): string {
@@ -46,23 +46,35 @@ export async function POST(request: NextRequest) {
     const structuredOutputs = extractStructuredOutputs(body.message?.artifact);
     console.log("Extracted structured outputs:", JSON.stringify(structuredOutputs, null, 2));
 
-    // Look up lead by phone number in Airtable (normalize to digits-only for matching)
+    // Look up lead: prefer metadata leadId, fall back to phone lookup
+    const metadata = body.message?.call?.metadata || body.message?.metadata || {};
+    const metadataLeadId = metadata.leadId;
+    console.log("Metadata leadId:", metadataLeadId);
+
     let lead = null;
-    if (result.customerPhone) {
-      const digits = result.customerPhone.replace(/[^\d]/g, "");
-      console.log("Looking up lead by phone digits:", digits);
+
+    if (metadataLeadId) {
+      try {
+        lead = await getLead(metadataLeadId);
+        console.log("Found lead by metadata ID:", lead.id, lead.name);
+      } catch (err) {
+        console.error("Failed to get lead by metadata ID:", metadataLeadId, err);
+      }
+    }
+
+    if (!lead && result.customerPhone) {
+      console.log("Falling back to phone lookup");
+      const digits = result.customerPhone.replace(/[^\d]/g, "").slice(-10);
       try {
         const { leads } = await getLeads({
           filterByFormula: `FIND("${digits}", SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({Phone}, "-", ""), " ", ""), "(", ""), ")", ""))`,
           maxRecords: 1,
         });
         lead = leads[0] || null;
-        console.log("Found lead:", lead?.id, lead?.name);
+        console.log("Found lead by phone:", lead?.id, lead?.name);
       } catch (err) {
         console.error("Failed to look up lead by phone:", err);
       }
-    } else {
-      console.log("No customer phone found in webhook payload");
     }
 
     // Update Airtable lead with call results and re-score

@@ -15,6 +15,7 @@ function getHeaders() {
 
 export async function scheduleVapiCall(params: {
   phoneNumber: string;
+  leadId: string;
   assistantId?: string;
   leadName: string;
   leadCompany?: string;
@@ -40,6 +41,11 @@ export async function scheduleVapiCall(params: {
       assistantId,
       customer: {
         number: formattedPhone,
+      },
+      metadata: {
+        leadId: params.leadId,
+        leadName: params.leadName,
+        leadCompany: params.leadCompany || "",
       },
       assistantOverrides: {
         firstMessage: `Hi, this is Sarah from the sales team. Am I speaking with ${params.leadName}${params.leadCompany ? ` from ${params.leadCompany}` : ""}?`,
