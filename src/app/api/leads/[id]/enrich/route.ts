@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLead, updateLead, findCompanyByName, createCompany, updateCompany } from "@/lib/airtable";
-import { enrichLead, researchCompany, generateOutreachStrategy } from "@/lib/relevance-ai";
+import { enrichLead, researchCompany, generateOutreach } from "@/lib/relevance-ai";
 import { getDemoLeads } from "@/lib/demo-data";
 
 function isDemoMode() {
@@ -186,10 +186,27 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       }
     }
 
-    // Step 3: Run outreach strategy generation with combined data from steps 1 & 2
+    // Step 3: Run outreach generation with combined data from steps 1 & 2, plus call data
     if (hasOutreachConfig) {
       try {
-        const outreachResult = await generateOutreachStrategy({
+        let callPainPoints = "";
+        if (lead.vapiCallData) {
+          try {
+            const callData = JSON.parse(lead.vapiCallData);
+            callPainPoints = callData.pain_points || callData.call_summary || "";
+          } catch {}
+        }
+
+        const enrichPainPoints = Array.isArray(enrichData?.likely_pain_points)
+          ? enrichData.likely_pain_points.join(", ")
+          : "";
+        const combinedPainPoints = [enrichPainPoints, callPainPoints].filter(Boolean).join("; ");
+
+        const aiOpportunities = Array.isArray(enrichData?.ai_automation_opportunities)
+          ? enrichData.ai_automation_opportunities.join(", ")
+          : "";
+
+        const outreachResult = await generateOutreach({
           lead_name: lead.name,
           lead_email: lead.email,
           job_title: enrichData?.title || enrichData?.job_title || lead.title || "",
@@ -198,9 +215,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           company_industry: enrichData?.industry || researchData?.industry || lead.industry || "",
           company_size: enrichData?.estimated_company_size || enrichData?.company_size || lead.companySize || "",
           company_revenue: enrichData?.estimated_revenue || "",
-          pain_points: Array.isArray(enrichData?.likely_pain_points) ? enrichData.likely_pain_points.join(", ") : "",
-          ai_opportunities: Array.isArray(enrichData?.ai_automation_opportunities) ? enrichData.ai_automation_opportunities.join(", ") : "",
+          pain_points: combinedPainPoints,
+          ai_opportunities: aiOpportunities,
           icp_fit_score: enrichData?.icp_fit_score || 0,
+          message_type: "email",
+          tone: "consultative",
         });
 
         const outreachOutput = outreachResult.output || outreachResult;
@@ -210,7 +229,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         if (outreachData?.recommended_channel) updateData.recommendedChannel = outreachData.recommended_channel;
         if (outreachData?.approach_tone) updateData.approachTone = outreachData.approach_tone;
       } catch (err) {
-        console.error("Outreach strategy error:", err);
+        console.error("Outreach generator error:", err);
         // Continue without outreach — save partial data from enrichment + research
       }
     }
