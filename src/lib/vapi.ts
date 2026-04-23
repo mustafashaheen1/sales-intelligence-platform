@@ -1,4 +1,5 @@
 import { VapiCall, VapiCallStatus } from "@/types";
+import { formatPhoneForVapi } from "@/lib/utils";
 
 const VAPI_API_BASE = "https://api.vapi.ai";
 
@@ -29,6 +30,8 @@ export async function scheduleVapiCall(params: {
     throw new Error("Vapi Phone Number ID not configured");
   }
 
+  const formattedPhone = formatPhoneForVapi(params.phoneNumber);
+
   const response = await fetch(`${VAPI_API_BASE}/call`, {
     method: "POST",
     headers: getHeaders(),
@@ -36,7 +39,7 @@ export async function scheduleVapiCall(params: {
       phoneNumberId,
       assistantId,
       customer: {
-        number: params.phoneNumber,
+        number: formattedPhone,
       },
       assistantOverrides: {
         firstMessage: `Hi, this is Sarah from the sales team. Am I speaking with ${params.leadName}${params.leadCompany ? ` from ${params.leadCompany}` : ""}?`,
