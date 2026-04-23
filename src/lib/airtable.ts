@@ -4,6 +4,12 @@ import { normalizePhone, formatPhoneForVapi } from "@/lib/utils";
 
 const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
 
+function cleanFieldValue(value: any): string {
+  if (!value) return '';
+  if (typeof value !== 'string') return String(value);
+  return value.replace(/^["']+|["']+$/g, '').trim();
+}
+
 function cleanScoreLabel(label: string): ScoreLabel {
   const cleaned = label.replace(/["']/g, "").trim();
   if (VALID_SCORE_LABELS.includes(cleaned as ScoreLabel)) {
@@ -145,16 +151,16 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.vapiCallStatus !== undefined) fields["Vapi Call Status"] = data.vapiCallStatus;
   if (data.vapiCallSummary !== undefined) fields["Vapi Call Summary"] = data.vapiCallSummary;
   if (data.vapiCallData !== undefined) fields["Vapi Call Data"] = data.vapiCallData;
-  if (data.companySize !== undefined) fields["Company Size"] = data.companySize;
-  if (data.industry !== undefined) fields["Industry"] = data.industry;
+  if (data.companySize !== undefined) fields["Company Size"] = cleanFieldValue(data.companySize);
+  if (data.industry !== undefined) fields["Industry"] = cleanFieldValue(data.industry);
   if (data.companyLinkedin !== undefined) fields["Company LinkedIn"] = data.companyLinkedin;
   if (data.enrichmentData !== undefined) fields["Enrichment Data"] = data.enrichmentData;
   if (data.enrichedAt !== undefined) fields["Enriched At"] = data.enrichedAt;
   if (data.website !== undefined) fields["Website"] = data.website;
   if (data.companyLinkId !== undefined) fields["Company Link"] = [data.companyLinkId];
   if (data.outreachStrategy !== undefined) fields["Outreach Strategy"] = data.outreachStrategy;
-  if (data.recommendedChannel !== undefined) fields["Recommended Channel"] = data.recommendedChannel;
-  if (data.approachTone !== undefined) fields["Approach Tone"] = data.approachTone;
+  if (data.recommendedChannel !== undefined) fields["Recommended Channel"] = cleanFieldValue(data.recommendedChannel);
+  if (data.approachTone !== undefined) fields["Approach Tone"] = cleanFieldValue(data.approachTone);
 
   const record = await base("Leads").update(id, fields);
   return mapRecordToLead(record);
