@@ -43,6 +43,7 @@ function mapRecordToLead(record: any): Lead {
     notes: record.get("Notes") || undefined,
     vapiCallStatus: record.get("Vapi Call Status") as VapiCallStatus | undefined,
     vapiCallSummary: record.get("Vapi Call Summary") || undefined,
+    vapiCallData: record.get("Vapi Call Data") || undefined,
     companySize: record.get("Company Size") || undefined,
     industry: record.get("Industry") || undefined,
     companyLinkedin: record.get("Company LinkedIn") || undefined,
@@ -143,6 +144,7 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.nextFollowUp !== undefined) fields["Next Follow Up"] = data.nextFollowUp;
   if (data.vapiCallStatus !== undefined) fields["Vapi Call Status"] = data.vapiCallStatus;
   if (data.vapiCallSummary !== undefined) fields["Vapi Call Summary"] = data.vapiCallSummary;
+  if (data.vapiCallData !== undefined) fields["Vapi Call Data"] = data.vapiCallData;
   if (data.companySize !== undefined) fields["Company Size"] = data.companySize;
   if (data.industry !== undefined) fields["Industry"] = data.industry;
   if (data.companyLinkedin !== undefined) fields["Company LinkedIn"] = data.companyLinkedin;

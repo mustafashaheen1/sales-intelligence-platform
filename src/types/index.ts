@@ -28,6 +28,7 @@ export interface Lead {
   notes?: string;
   vapiCallStatus?: VapiCallStatus;
   vapiCallSummary?: string;
+  vapiCallData?: string;
   companySize?: string;
   industry?: string;
   companyLinkedin?: string;

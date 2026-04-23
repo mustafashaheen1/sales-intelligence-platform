@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseVapiWebhook } from "@/lib/vapi";
 import { triggerN8nWorkflow } from "@/lib/n8n";
 import { getLeads, updateLead } from "@/lib/airtable";
+import { scoreLeadWithCallData } from "@/lib/langchain";
 
 function formatDuration(seconds: number): string {
   if (!seconds) return "0s";
@@ -64,16 +65,31 @@ export async function POST(request: NextRequest) {
       console.log("No customer phone found in webhook payload");
     }
 
-    // Update Airtable lead with call results
+    // Update Airtable lead with call results and re-score
     if (lead) {
       try {
         await updateLead(lead.id, {
           vapiCallStatus: result.status,
-          vapiCallSummary: result.summary || structuredOutputs.call_summary || "Call completed",
+          vapiCallSummary: structuredOutputs.call_summary || result.summary || "Call completed",
+          vapiCallData: JSON.stringify(structuredOutputs),
         });
-        console.log("Updated Airtable for lead:", lead.id);
+        console.log("Updated Airtable with call data for lead:", lead.id);
+
+        if (structuredOutputs.qualification_status || structuredOutputs.call_summary) {
+          console.log("Re-scoring lead with call data...");
+          const reScoreResult = await scoreLeadWithCallData(lead, structuredOutputs);
+          await updateLead(lead.id, {
+            aiScore: reScoreResult.score,
+            aiScoreLabel: reScoreResult.scoreLabel,
+            aiInsights: reScoreResult.insights,
+            keyStrengths: reScoreResult.keyStrengths,
+            concerns: reScoreResult.concerns,
+            suggestedNextStep: reScoreResult.suggestedNextStep,
+          });
+          console.log("Lead re-scored:", reScoreResult.score, reScoreResult.scoreLabel);
+        }
       } catch (err) {
-        console.error("Failed to update lead with call results:", err);
+        console.error("Failed to update/re-score lead:", err);
       }
     } else {
       console.log("No lead found, skipping Airtable update");

@@ -761,16 +761,16 @@ export function LeadDetailCard({ lead, onScore, onScheduleCall, onEnrich, compan
         </CardContent>
       </Card>
 
-      {/* Vapi Call Summary */}
+      {/* Vapi Call Analysis */}
       {lead.vapiCallSummary && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <PhoneCall className="h-4 w-4 text-primary" /> Call Summary
+              <PhoneCall className="h-4 w-4 text-primary" /> Call Analysis
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2 mb-2">
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2">
               <Badge variant="outline" className={cn("text-xs",
                 lead.vapiCallStatus === "Completed" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
                 lead.vapiCallStatus === "Scheduled" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
@@ -779,7 +779,57 @@ export function LeadDetailCard({ lead, onScore, onScheduleCall, onEnrich, compan
                 {lead.vapiCallStatus}
               </Badge>
             </div>
+
             <p className="text-sm text-muted-foreground">{lead.vapiCallSummary}</p>
+
+            {lead.vapiCallData && (() => {
+              try {
+                const data = JSON.parse(lead.vapiCallData);
+                const hasAny = data.qualification_status || data.budget_range || data.timeline ||
+                  data.is_decision_maker !== undefined || data.next_steps || data.pain_points;
+                if (!hasAny) return null;
+                return (
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t">
+                    {data.qualification_status && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Qualification</span>
+                        <p className="text-sm font-medium">{data.qualification_status}</p>
+                      </div>
+                    )}
+                    {data.budget_range && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Budget</span>
+                        <p className="text-sm font-medium">{data.budget_range.replace(/_/g, ' ')}</p>
+                      </div>
+                    )}
+                    {data.timeline && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Timeline</span>
+                        <p className="text-sm font-medium">{data.timeline.replace(/_/g, ' ')}</p>
+                      </div>
+                    )}
+                    {data.is_decision_maker !== undefined && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Decision Maker</span>
+                        <p className="text-sm font-medium">{data.is_decision_maker ? "Yes ✓" : "No"}</p>
+                      </div>
+                    )}
+                    {data.next_steps && (
+                      <div className="col-span-2">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Next Steps</span>
+                        <p className="text-sm font-medium">{data.next_steps}</p>
+                      </div>
+                    )}
+                    {data.pain_points && (
+                      <div className="col-span-2">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Pain Points</span>
+                        <p className="text-sm text-muted-foreground">{data.pain_points}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              } catch { return null; }
+            })()}
           </CardContent>
         </Card>
       )}

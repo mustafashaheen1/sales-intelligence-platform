@@ -67,6 +67,73 @@ Return ONLY valid JSON, no other text.`;
   };
 }
 
+export async function scoreLeadWithCallData(
+  lead: Partial<Lead>,
+  callData: {
+    qualification_status?: string;
+    pain_points?: string;
+    budget_range?: string;
+    timeline?: string;
+    is_decision_maker?: boolean;
+    call_summary?: string;
+    call_outcome?: string;
+    next_steps?: string;
+  }
+): Promise<AIScoreResult> {
+  const model = getModel();
+
+  const prompt = `You are an AI sales assistant analyzing a lead AFTER a qualification call.
+
+LEAD PROFILE:
+- Name: ${lead.name || "Unknown"}
+- Company: ${lead.company || "Unknown"}
+- Title: ${lead.title || "Unknown"}
+- Source: ${lead.leadSource || "Unknown"}
+
+CALL RESULTS:
+- Qualification: ${callData.qualification_status || "Unknown"}
+- Summary: ${callData.call_summary || "No summary"}
+- Pain Points: ${callData.pain_points || "None identified"}
+- Budget: ${callData.budget_range || "Not discussed"}
+- Timeline: ${callData.timeline || "Not discussed"}
+- Decision Maker: ${callData.is_decision_maker ?? "Unknown"}
+- Next Steps: ${callData.next_steps || "None agreed"}
+
+Score this lead (0-100) based on call outcome:
+- QUALIFIED + budget + decision maker = 85-100 (Hot)
+- QUALIFIED + some unknowns = 70-84 (Hot)
+- NEEDS_FOLLOW_UP = 50-69 (Warm)
+- NOT_QUALIFIED = 20-49 (Cold)
+
+Return ONLY valid JSON:
+{
+  "score": <number>,
+  "scoreLabel": "Hot 🔥" or "Warm 🌡️" or "Cold ❄️",
+  "insights": "<2-3 sentences about call findings>",
+  "keyStrengths": ["<strength from call>"],
+  "concerns": ["<objection or concern raised>"],
+  "suggestedNextStep": "<specific action based on call>"
+}`;
+
+  const response = await model.invoke([new HumanMessage(prompt)]);
+  const content = typeof response.content === "string" ? response.content : "";
+
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("Failed to parse AI response");
+
+  const result = JSON.parse(jsonMatch[0]);
+  const score = Math.min(100, Math.max(0, Number(result.score)));
+
+  return {
+    score,
+    scoreLabel: getScoreLabel(score),
+    insights: typeof result.insights === "string" ? result.insights : "",
+    keyStrengths: Array.isArray(result.keyStrengths) ? result.keyStrengths : [],
+    concerns: Array.isArray(result.concerns) ? result.concerns : [],
+    suggestedNextStep: result.suggestedNextStep || "Follow up based on call outcome",
+  };
+}
+
 export async function generateOutreach(
   lead: Lead,
   type: OutreachType,
