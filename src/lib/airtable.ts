@@ -151,12 +151,8 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.vapiCallStatus !== undefined) fields["Vapi Call Status"] = data.vapiCallStatus;
   if (data.vapiCallSummary !== undefined) fields["Vapi Call Summary"] = data.vapiCallSummary;
   if (data.vapiCallData !== undefined) fields["Vapi Call Data"] = data.vapiCallData;
-  if (data.companySize !== undefined) fields["Company Size"] = cleanFieldValue(data.companySize);
-  if (data.industry !== undefined) fields["Industry"] = cleanFieldValue(data.industry);
-  if (data.companyLinkedin !== undefined) fields["Company LinkedIn"] = data.companyLinkedin;
   if (data.enrichmentData !== undefined) fields["Enrichment Data"] = data.enrichmentData;
   if (data.enrichedAt !== undefined) fields["Enriched At"] = data.enrichedAt;
-  if (data.website !== undefined) fields["Website"] = data.website;
   if (data.companyLinkId !== undefined) fields["Company Link"] = [data.companyLinkId];
   if (data.outreachStrategy !== undefined) fields["Outreach Strategy"] = data.outreachStrategy;
   if (data.recommendedChannel !== undefined) fields["Recommended Channel"] = cleanFieldValue(data.recommendedChannel);

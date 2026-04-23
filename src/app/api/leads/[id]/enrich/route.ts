@@ -138,15 +138,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       const enrichOutput = enrichResult.output || enrichResult;
       updateData.enrichmentData = JSON.stringify(enrichOutput);
 
-      // Fill empty lead fields from enrichment
+      // Fill empty lead-specific fields from enrichment
       if (enrichData?.company && !lead.company) updateData.company = enrichData.company;
       if ((enrichData?.title || enrichData?.job_title) && !lead.title) updateData.title = enrichData.title || enrichData.job_title;
       if (enrichData?.linkedin_url && !lead.linkedinUrl) updateData.linkedinUrl = enrichData.linkedin_url;
-      if (enrichData?.company_size && !lead.companySize) updateData.companySize = enrichData.company_size;
-      if (enrichData?.estimated_company_size && !lead.companySize) updateData.companySize = enrichData.estimated_company_size;
-      if (enrichData?.industry && !lead.industry) updateData.industry = enrichData.industry;
-      if (enrichData?.company_linkedin && !lead.companyLinkedin) updateData.companyLinkedin = enrichData.company_linkedin;
-      if (enrichData?.website && !lead.website) updateData.website = enrichData.website;
     }
 
     // Handle company research - find or create company, save research
@@ -159,10 +154,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       if (!company) {
         company = await createCompany({
           name: companyName,
-          website: lead.website || updateData.website,
-          industry: lead.industry || updateData.industry,
-          companySize: lead.companySize || updateData.companySize,
-          linkedinUrl: lead.companyLinkedin || updateData.companyLinkedin,
+          website: lead.website || enrichData?.website,
+          industry: lead.industry || enrichData?.industry,
+          companySize: lead.companySize || enrichData?.estimated_company_size || enrichData?.company_size,
+          linkedinUrl: lead.companyLinkedin || enrichData?.company_linkedin,
         });
       }
 
@@ -173,8 +168,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           researchedAt: new Date().toISOString().split("T")[0],
         };
 
-        if (researchData?.industry && !company.industry) companyUpdate.industry = researchData.industry;
-        if (researchData?.company_size && !company.companySize) companyUpdate.companySize = researchData.company_size;
+        if (researchData?.industry || enrichData?.industry) {
+          companyUpdate.industry = researchData?.industry || enrichData?.industry;
+        }
+        if (researchData?.company_size || enrichData?.estimated_company_size || enrichData?.company_size) {
+          companyUpdate.companySize = researchData?.company_size || enrichData?.estimated_company_size || enrichData?.company_size;
+        }
         if (researchData?.website && !company.website) companyUpdate.website = researchData.website;
 
         company = await updateCompany(company.id, companyUpdate);
