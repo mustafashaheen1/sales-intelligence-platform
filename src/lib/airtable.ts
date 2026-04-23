@@ -5,9 +5,12 @@ import { normalizePhone, formatPhoneForVapi } from "@/lib/utils";
 const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
 
 function cleanFieldValue(value: any): string {
-  if (!value) return '';
+  if (value === null || value === undefined) return '';
   if (typeof value !== 'string') return String(value);
-  return value.replace(/^["']+|["']+$/g, '').trim();
+  return value
+    .replace(/^["']+|["']+$/g, '')
+    .replace(/^""+|""+$/g, '')
+    .trim();
 }
 
 function cleanScoreLabel(label: string): ScoreLabel {
@@ -151,6 +154,8 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.vapiCallStatus !== undefined) fields["Vapi Call Status"] = data.vapiCallStatus;
   if (data.vapiCallSummary !== undefined) fields["Vapi Call Summary"] = data.vapiCallSummary;
   if (data.vapiCallData !== undefined) fields["Vapi Call Data"] = data.vapiCallData;
+  if (data.industry !== undefined) fields["Industry"] = cleanFieldValue(data.industry);
+  if (data.companySize !== undefined) fields["Company Size"] = cleanFieldValue(data.companySize);
   if (data.enrichmentData !== undefined) fields["Enrichment Data"] = data.enrichmentData;
   if (data.enrichedAt !== undefined) fields["Enriched At"] = data.enrichedAt;
   if (data.companyLinkId !== undefined) fields["Company Link"] = [data.companyLinkId];
@@ -226,8 +231,8 @@ export async function updateCompany(id: string, data: Partial<Company>): Promise
   const fields: any = {};
   if (data.name !== undefined) fields["Company Name"] = data.name;
   if (data.website !== undefined) fields["Website"] = data.website;
-  if (data.industry !== undefined) fields["Industry"] = data.industry;
-  if (data.companySize !== undefined) fields["Company Size"] = data.companySize;
+  if (data.industry !== undefined) fields["Industry"] = cleanFieldValue(data.industry);
+  if (data.companySize !== undefined) fields["Company Size"] = cleanFieldValue(data.companySize);
   if (data.linkedinUrl !== undefined) fields["LinkedIn URL"] = data.linkedinUrl;
   if (data.companyResearch !== undefined) fields["Company Research"] = data.companyResearch;
   if (data.researchedAt !== undefined) fields["Researched At"] = data.researchedAt;
