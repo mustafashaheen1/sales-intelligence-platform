@@ -22,6 +22,7 @@ interface LeadFormProps {
 export function LeadForm({ open, onOpenChange, onSubmit, initialData, mode = "create" }: LeadFormProps) {
   const [loading, setLoading] = useState(false);
   const [scoring, setScoring] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<Partial<Lead>>(initialData || {
     name: "",
     email: "",
@@ -33,29 +34,72 @@ export function LeadForm({ open, onOpenChange, onSubmit, initialData, mode = "cr
     notes: "",
   });
 
+  const update = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors({});
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    const truncated = digits.slice(0, 10);
+    setFormData((prev) => ({ ...prev, phone: truncated }));
+    setErrors({});
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name) {
+      newErrors.name = "Name is required";
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email || !emailRegex.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (formData.phone && formData.phone.length !== 10) {
+      newErrors.phone = "Phone must be exactly 10 digits";
+    }
+
+    if (formData.linkedinUrl) {
+      const linkedinRegex = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w-]+\/?$/;
+      if (!linkedinRegex.test(formData.linkedinUrl)) {
+        newErrors.linkedin = "Please enter a valid LinkedIn profile URL (linkedin.com/in/...)";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) {
-      toast.error("Name and email are required");
+
+    if (!validateForm()) {
+      toast.error("Please fix the form errors");
       return;
     }
+
+    const submitData = { ...formData };
+    if (submitData.linkedinUrl && !submitData.linkedinUrl.startsWith('http')) {
+      submitData.linkedinUrl = 'https://' + submitData.linkedinUrl;
+    }
+
     setLoading(true);
     if (mode === "create") setScoring(true);
     try {
-      await onSubmit(formData);
+      await onSubmit(submitData);
       toast.success(mode === "create" ? "Lead created and scored!" : "Lead updated!");
       onOpenChange(false);
       setFormData({ name: "", email: "", phone: "", company: "", title: "", linkedinUrl: "", notes: "" });
+      setErrors({});
     } catch (err) {
       toast.error("Something went wrong");
     } finally {
       setLoading(false);
       setScoring(false);
     }
-  };
-
-  const update = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -72,18 +116,30 @@ export function LeadForm({ open, onOpenChange, onSubmit, initialData, mode = "cr
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name *</Label>
-              <Input id="name" value={formData.name || ""} onChange={(e) => update("name", e.target.value)} placeholder="John Smith" required />
+              <Input id="name" value={formData.name || ""} onChange={(e) => update("name", e.target.value)} placeholder="John Smith" />
+              {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
-              <Input id="email" type="email" value={formData.email || ""} onChange={(e) => update("email", e.target.value)} placeholder="john@company.com" required />
+              <Input id="email" type="text" value={formData.email || ""} onChange={(e) => update("email", e.target.value)} placeholder="john@company.com" />
+              {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={formData.phone || ""} onChange={(e) => update("phone", e.target.value)} placeholder="+1-555-0100" />
+              <Input
+                id="phone"
+                value={formData.phone || ""}
+                onChange={handlePhoneChange}
+                placeholder="5551234567"
+                maxLength={10}
+                inputMode="numeric"
+                pattern="[0-9]*"
+              />
+              <p className="text-xs text-muted-foreground">10 digits only, no country code</p>
+              {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="company">Company</Label>
@@ -110,7 +166,8 @@ export function LeadForm({ open, onOpenChange, onSubmit, initialData, mode = "cr
 
           <div className="space-y-2">
             <Label htmlFor="linkedin">LinkedIn URL</Label>
-            <Input id="linkedin" value={formData.linkedinUrl || ""} onChange={(e) => update("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/in/..." />
+            <Input id="linkedin" value={formData.linkedinUrl || ""} onChange={(e) => update("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/in/username" />
+            {errors.linkedin && <p className="text-xs text-destructive mt-1">{errors.linkedin}</p>}
           </div>
 
           <div className="space-y-2">

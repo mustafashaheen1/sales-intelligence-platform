@@ -1,6 +1,6 @@
 import Airtable from "airtable";
 import { Lead, Company, Activity, LeadSource, LeadStatus, ScoreLabel, VapiCallStatus, ActivityType, ActivityOutcome } from "@/types";
-import { normalizePhone } from "@/lib/utils";
+import { normalizePhone, formatPhoneForVapi } from "@/lib/utils";
 
 const VALID_SCORE_LABELS: ScoreLabel[] = ["Hot 🔥", "Warm 🌡️", "Cold ❄️"];
 
