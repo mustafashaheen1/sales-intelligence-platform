@@ -321,12 +321,15 @@ export default function LandingPage() {
                 <p className="text-muted-foreground mb-4">
                   Book a 30-minute demo to see how SalesAI can transform your sales process.
                 </p>
-                <Button asChild className="w-full">
-                  <a href="https://calendly.com/mustafashaheen/30min" target="_blank" rel="noopener noreferrer">
-                    Open Calendar
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </a>
-                </Button>
+                <a
+                  href="https://calendly.com/mustafashaheen/30min"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center w-full h-10 px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Open Calendar
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </a>
               </div>
             </CardContent>
           </Card>
