@@ -46,11 +46,20 @@ export function PipelineChart({ data, loading }: PipelineChartProps) {
             <YAxis className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
+                backgroundColor: "hsl(var(--popover))",
                 border: "1px solid hsl(var(--border))",
                 borderRadius: "8px",
-                color: "hsl(var(--foreground))",
+                color: "hsl(var(--popover-foreground))",
+                boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               }}
+              labelStyle={{
+                color: "hsl(var(--popover-foreground))",
+                fontWeight: 600,
+              }}
+              itemStyle={{
+                color: "hsl(var(--popover-foreground))",
+              }}
+              cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
             />
             <Bar dataKey="count" radius={[6, 6, 0, 0]}>
               {data.map((entry) => (
