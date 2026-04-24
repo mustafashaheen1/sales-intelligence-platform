@@ -14,7 +14,7 @@ export async function GET() {
       return NextResponse.json(getDemoAnalyticsOverview());
     }
 
-    const { leads } = await getLeads({ maxRecords: 1000 });
+    const { leads } = await getLeads();
     console.log("Analytics overview - Leads fetched:", leads.length);
 
     const overview = {

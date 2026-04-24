@@ -86,12 +86,13 @@ export async function getLeads(options?: {
 }): Promise<{ leads: Lead[]; offset?: string }> {
   const base = getBase();
   const query: any = {
-    pageSize: options?.maxRecords || 100,
+    pageSize: 100, // Airtable max per page
   };
+  if (options?.maxRecords) query.maxRecords = options.maxRecords;
   if (options?.filterByFormula) query.filterByFormula = options.filterByFormula;
   if (options?.sort) query.sort = options.sort;
 
-  const records = await base("Leads").select(query).firstPage();
+  const records = await base("Leads").select(query).all();
   return {
     leads: records.map(mapRecordToLead),
   };
