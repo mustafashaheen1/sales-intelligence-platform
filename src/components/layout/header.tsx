@@ -2,16 +2,22 @@
 
 import React from "react";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Search, Bell, Command } from "lucide-react";
+import { Moon, Sun, Search, Bell, Command, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  const initials = user?.name
+    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : "?";
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
@@ -48,10 +54,19 @@ export function Header() {
           </Button>
         )}
 
-        <div className="ml-2 flex items-center gap-2">
+        <div className="ml-2 flex items-center gap-3">
+          {user && (
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="text-sm font-medium leading-none">{user.name}</span>
+              <span className="text-xs text-muted-foreground">{user.email}</span>
+            </div>
+          )}
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-            MS
+            {initials}
           </div>
+          <Button variant="ghost" size="icon" onClick={() => logout()} title="Logout">
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </header>

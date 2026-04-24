@@ -15,12 +15,14 @@ import {
   ChevronRight,
   Zap,
   BrainCircuit,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: Users },
-  { href: "/calls", label: "Voice AI", icon: Phone },
+  { href: "/voice-ai", label: "Voice AI", icon: Phone },
   { href: "/outreach", label: "Outreach", icon: Mail },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -29,6 +31,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { logout } = useAuth();
 
   return (
     <aside
@@ -51,7 +54,7 @@ export function Sidebar() {
 
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}
@@ -70,18 +73,26 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-3 border-t border-border">
+      <div className="p-3 border-t border-border space-y-2">
         {!collapsed && (
-          <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+          <div className="mb-1 p-3 rounded-lg bg-primary/5 border border-primary/10">
             <div className="flex items-center gap-2 mb-1">
               <Zap className="h-3.5 w-3.5 text-primary" />
               <span className="text-xs font-semibold text-primary">AI Powered</span>
             </div>
-            <p className="text-[11px] text-muted-foreground leading-tight">
-              LangChain + Vapi + n8n
-            </p>
+            <p className="text-[11px] text-muted-foreground leading-tight">LangChain + Vapi + n8n</p>
           </div>
         )}
+        <button
+          onClick={() => logout()}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors w-full",
+            collapsed && "justify-center"
+          )}
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Logout</span>}
+        </button>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="flex items-center justify-center w-full h-8 rounded-md hover:bg-accent text-muted-foreground transition-colors"
