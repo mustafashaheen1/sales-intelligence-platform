@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLeads, createLead } from "@/lib/airtable";
+import { getLeads, createLead, createActivity } from "@/lib/airtable";
 import { getDemoLeads } from "@/lib/demo-data";
 import { scoreLead } from "@/lib/langchain";
 import { triggerN8nWorkflow } from "@/lib/n8n";
@@ -114,6 +114,17 @@ export async function POST(request: NextRequest) {
       } catch (aiError) {
         console.error("AI scoring failed:", aiError);
       }
+    }
+
+    try {
+      await createActivity({
+        activityType: "Note Added",
+        leadId: lead.id,
+        description: `New lead created: ${lead.name} from ${lead.leadSource || "unknown source"}`,
+        outcome: "Neutral",
+      });
+    } catch (actErr) {
+      console.error("Failed to create lead activity:", actErr);
     }
 
     return NextResponse.json({ lead });

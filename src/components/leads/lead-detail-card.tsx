@@ -832,7 +832,7 @@ export function LeadDetailCard({ lead, onScore, onScheduleCall, onEnrich, compan
           <div className="flex gap-2 flex-wrap">
             <Button size="sm" variant="outline" onClick={handleScheduleCall} disabled={schedulingCall}>
               {schedulingCall ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <PhoneCall className="h-3.5 w-3.5 mr-1" />}
-              Schedule Vapi Call
+              Initiate Vapi Call
             </Button>
             <Button size="sm" variant="outline" onClick={handleEnrich} disabled={enriching || !(lead.name && (lead.email || lead.company))}>
               {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}

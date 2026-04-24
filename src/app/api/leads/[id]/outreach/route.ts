@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLead } from "@/lib/airtable";
+import { getLead, createActivity } from "@/lib/airtable";
 import { getDemoLeads } from "@/lib/demo-data";
 import { generateOutreach } from "@/lib/langchain";
 
@@ -41,6 +41,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     lead = await getLead(params.id);
     const result = await generateOutreach(lead, type, tone);
+
+    try {
+      await createActivity({
+        activityType: type === "email" ? "Email Sent" : "Note Added",
+        leadId: params.id,
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} outreach generated (${tone} tone)`,
+        outcome: "Neutral",
+      });
+    } catch (actErr) {
+      console.error("Failed to create outreach activity:", actErr);
+    }
+
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error generating outreach:", error);

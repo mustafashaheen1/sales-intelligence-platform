@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseVapiWebhook } from "@/lib/vapi";
 import { triggerN8nWorkflow } from "@/lib/n8n";
-import { getLead, getLeads, updateLead } from "@/lib/airtable";
+import { getLead, getLeads, updateLead, createActivity } from "@/lib/airtable";
 import { scoreLeadWithCallData } from "@/lib/langchain";
 
 function formatDuration(seconds: number): string {
@@ -99,6 +99,21 @@ export async function POST(request: NextRequest) {
             suggestedNextStep: reScoreResult.suggestedNextStep,
           });
           console.log("Lead re-scored:", reScoreResult.score, reScoreResult.scoreLabel);
+        }
+
+        const qualStatus = structuredOutputs.qualification_status;
+        const callOutcome = qualStatus === "QUALIFIED" ? "Positive"
+          : qualStatus === "NOT_QUALIFIED" ? "Negative"
+          : "Neutral";
+        try {
+          await createActivity({
+            activityType: "Call Made",
+            leadId: lead.id,
+            description: structuredOutputs.call_summary || result.summary || "AI qualification call completed",
+            outcome: callOutcome,
+          });
+        } catch (err) {
+          console.error("Failed to create call activity:", err);
         }
       } catch (err) {
         console.error("Failed to update/re-score lead:", err);
