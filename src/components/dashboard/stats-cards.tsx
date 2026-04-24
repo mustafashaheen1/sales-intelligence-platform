@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Flame, Thermometer, Snowflake, TrendingUp, Phone } from "lucide-react";
+import { Users, Flame, Thermometer, Snowflake, TrendingUp, Phone, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalyticsOverview } from "@/types";
@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface StatsCardsProps {
   data: AnalyticsOverview | null;
   loading: boolean;
+  error?: string | null;
 }
 
 const stats = [
@@ -20,7 +21,7 @@ const stats = [
   { key: "callsScheduledToday" as const, label: "Calls Scheduled", icon: Phone, color: "text-purple-500", bg: "bg-purple-500/10" },
 ];
 
-export function StatsCards({ data, loading }: StatsCardsProps) {
+export function StatsCards({ data, loading, error }: StatsCardsProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -33,6 +34,20 @@ export function StatsCards({ data, loading }: StatsCardsProps) {
           </Card>
         ))}
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-red-500/20 bg-red-500/5">
+        <CardContent className="p-4 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-red-500">Failed to load dashboard stats</p>
+            <p className="text-xs text-muted-foreground">{error}</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -49,7 +64,7 @@ export function StatsCards({ data, loading }: StatsCardsProps) {
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-bold">
-                {data ? data[stat.key] : 0}
+                {data?.[stat.key] ?? 0}
               </span>
               {stat.suffix && <span className="text-sm text-muted-foreground">{stat.suffix}</span>}
             </div>

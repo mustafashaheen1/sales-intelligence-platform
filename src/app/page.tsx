@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
-  const { data: overview, loading: overviewLoading } = useAnalyticsOverview();
+  const { data: overview, loading: overviewLoading, error: overviewError } = useAnalyticsOverview();
   const { data: pipeline, loading: pipelineLoading } = usePipelineData();
   const router = useRouter();
 
@@ -25,7 +25,7 @@ export default function DashboardPage() {
         </Badge>
       </div>
 
-      <StatsCards data={overview} loading={overviewLoading} />
+      <StatsCards data={overview} loading={overviewLoading} error={overviewError} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
