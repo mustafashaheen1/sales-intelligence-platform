@@ -159,6 +159,48 @@ export async function generateOutreach(
     sms: `Write a brief, impactful SMS message. Must be under 160 characters. No greeting/sign-off needed, just the core message.`,
   };
 
+  // Build call context from structured Vapi data or summary
+  let callContext = "";
+  if (lead.vapiCallData) {
+    try {
+      const callData = JSON.parse(lead.vapiCallData);
+      callContext = `
+CALL RESULTS (Use this to personalize!):
+- Qualification Status: ${callData.qualification_status || "Unknown"}
+- Pain Points Discussed: ${callData.pain_points || "None captured"}
+- Budget Range: ${callData.budget_range || "Not discussed"}
+- Timeline: ${callData.timeline || "Not discussed"}
+- Is Decision Maker: ${callData.is_decision_maker ?? "Unknown"}
+- Call Summary: ${callData.call_summary || "No summary"}
+- Next Steps Agreed: ${callData.next_steps || "None"}`;
+    } catch {}
+  } else if (lead.vapiCallSummary) {
+    callContext = `\nCALL SUMMARY: ${lead.vapiCallSummary}`;
+  }
+
+  // Build enrichment context
+  let enrichmentContext = "";
+  if (lead.enrichmentData) {
+    try {
+      const enrichRaw = JSON.parse(lead.enrichmentData);
+      const enrichData = enrichRaw.answer
+        ? (typeof enrichRaw.answer === "string"
+            ? JSON.parse(enrichRaw.answer.replace(/^```json\s*|```$/gi, "").trim())
+            : enrichRaw.answer)
+        : enrichRaw;
+      const painPoints = Array.isArray(enrichData.likely_pain_points) ? enrichData.likely_pain_points.join(", ") : "";
+      const aiOpps = Array.isArray(enrichData.ai_automation_opportunities) ? enrichData.ai_automation_opportunities.join(", ") : "";
+      enrichmentContext = `
+ENRICHMENT INSIGHTS:
+- Industry: ${enrichData.industry || "Unknown"}
+- Company Size: ${enrichData.estimated_company_size || "Unknown"}
+- Seniority Level: ${enrichData.seniority_level || "Unknown"}
+- Pain Points: ${painPoints || "Unknown"}
+- AI Opportunities: ${aiOpps || "Unknown"}
+- ICP Fit Score: ${enrichData.icp_fit_score ?? "Unknown"}/100`;
+    } catch {}
+  }
+
   const systemPrompt = `You are an expert sales copywriter. Generate a ${type} message for a sales outreach.
 
 ${typeInstructions[type]}
@@ -166,18 +208,18 @@ ${typeInstructions[type]}
 Tone: ${toneDescriptions[tone]}
 Maximum length: ${lengthLimits[type]} characters (for the body, excluding subject line)
 
-Personalize the message based on the lead's information. Reference their role, company, or any relevant details. Make it feel genuine, not templated.
+IMPORTANT: If call data is provided, reference specific pain points or discussions from the call to make the message highly personalized. If enrichment data is available, use industry-specific language and address their specific challenges. Make it feel genuine, not templated.`;
 
-If the lead has AI insights, use them to inform the message angle.`;
-
-  const leadContext = `Lead Information:
+  const leadContext = `LEAD INFORMATION:
 - Name: ${lead.name}
 - Company: ${lead.company || "Unknown"}
 - Title: ${lead.title || "Unknown"}
 - Lead Source: ${lead.leadSource || "Unknown"}
 - AI Insights: ${lead.aiInsights || "No insights available"}
 - Key Strengths: ${lead.keyStrengths?.join(", ") || "Unknown"}
-- Suggested Next Step: ${lead.suggestedNextStep || "General follow-up"}`;
+- Suggested Next Step: ${lead.suggestedNextStep || "General follow-up"}
+${callContext}
+${enrichmentContext}`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),
