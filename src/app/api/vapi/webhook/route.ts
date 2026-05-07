@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseVapiWebhook } from "@/lib/vapi";
 import { triggerN8nWorkflow } from "@/lib/n8n";
-import { getLead, getLeads, updateLead, createActivity } from "@/lib/airtable";
+import { getLead, getLeads, updateLead, createActivity, createLead } from "@/lib/airtable";
 import { scoreLeadWithCallData } from "@/lib/langchain";
+import { normalizePhone } from "@/lib/utils";
 
 function formatDuration(seconds: number): string {
   if (!seconds) return "0s";
@@ -23,6 +24,41 @@ function extractStructuredOutputs(artifact: any): Record<string, any> {
   return outputs;
 }
 
+function extractNameFromTranscript(transcript?: string): string | null {
+  if (!transcript) return null;
+  const patterns = [
+    /my name is ([A-Z][a-z]+ [A-Z][a-z]+)/i,
+    /I'm ([A-Z][a-z]+ [A-Z][a-z]+)/i,
+    /this is ([A-Z][a-z]+ [A-Z][a-z]+)/i,
+    /call me ([A-Z][a-z]+)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = transcript.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function extractCompanyFromTranscript(transcript?: string): string | null {
+  if (!transcript) return null;
+  const patterns = [
+    /I work (?:at|for) ([A-Z][A-Za-z0-9 ]+)/i,
+    /from ([A-Z][A-Za-z0-9 ]+) (?:company|inc|llc|corp)/i,
+    /company (?:is |called )?([A-Z][A-Za-z0-9 ]+)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = transcript.match(pattern);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+function extractEmailFromTranscript(transcript?: string): string | null {
+  if (!transcript) return null;
+  const match = transcript.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+  return match ? match[1] : null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -31,7 +67,6 @@ export async function POST(request: NextRequest) {
     console.log("body.message.type:", body.message?.type);
     console.log("All body keys:", Object.keys(body));
 
-    // Only process end-of-call-report events
     if (body.message?.type !== "end-of-call-report") {
       console.log("Ignoring non-end-of-call event:", body.message?.type);
       return NextResponse.json({ received: true });
@@ -46,11 +81,63 @@ export async function POST(request: NextRequest) {
     const structuredOutputs = extractStructuredOutputs(body.message?.artifact);
     console.log("Extracted structured outputs:", JSON.stringify(structuredOutputs, null, 2));
 
-    // Look up lead: prefer metadata leadId, fall back to phone lookup
+    // Read call metadata
     const metadata = body.message?.call?.metadata || body.message?.metadata || {};
     const metadataLeadId = metadata.leadId;
-    console.log("Metadata leadId:", metadataLeadId);
+    const callType = metadata.callType;
+    const knownLead = metadata.knownLead;
+    const customerPhone = body.message?.call?.customer?.number || result.customerPhone;
+    console.log("Metadata leadId:", metadataLeadId, "callType:", callType, "knownLead:", knownLead);
 
+    // Handle inbound call from an unknown caller — create a new lead
+    if (callType === "inbound" && knownLead === false && customerPhone) {
+      console.log("Creating lead from inbound call:", customerPhone);
+
+      const transcript = body.message?.transcript;
+      const extractedName =
+        structuredOutputs.caller_name ||
+        structuredOutputs.name ||
+        extractNameFromTranscript(transcript) ||
+        "Unknown Caller";
+      const extractedCompany =
+        structuredOutputs.company_name ||
+        structuredOutputs.company ||
+        extractCompanyFromTranscript(transcript);
+      const extractedEmail =
+        structuredOutputs.email ||
+        extractEmailFromTranscript(transcript) ||
+        `${normalizePhone(customerPhone)}@unknown.com`;
+
+      try {
+        const newLead = await createLead({
+          name: extractedName,
+          phone: normalizePhone(customerPhone),
+          company: extractedCompany || undefined,
+          email: extractedEmail,
+          leadSource: "Cold Outreach",
+          status: "New",
+          vapiCallStatus: "Completed",
+          vapiCallSummary: result.summary || "Inbound call",
+          callCount: 1,
+          lastCallDate: new Date().toISOString().split("T")[0],
+          lastCallSummary: result.summary,
+        });
+        console.log("Created new lead from inbound call:", newLead.id);
+
+        await createActivity({
+          activityType: "Call Made",
+          leadId: newLead.id,
+          description: `Inbound call received. Duration: ${formatDuration(result.duration || 0)}. ${result.summary || ""}`,
+          outcome: result.outcome === "success" ? "Positive" : "Neutral",
+        });
+
+        return NextResponse.json({ success: true, leadId: newLead.id, created: true });
+      } catch (createError) {
+        console.error("Failed to create lead from inbound call:", createError);
+      }
+    }
+
+    // Look up lead: prefer metadata leadId, fall back to phone lookup
     let lead = null;
 
     if (metadataLeadId) {
@@ -84,6 +171,9 @@ export async function POST(request: NextRequest) {
           vapiCallStatus: result.status,
           vapiCallSummary: structuredOutputs.call_summary || result.summary || "Call completed",
           vapiCallData: JSON.stringify(structuredOutputs),
+          lastCallDate: new Date().toISOString().split("T")[0],
+          lastCallSummary: structuredOutputs.call_summary || result.summary,
+          callCount: (lead.callCount || 0) + 1,
         });
         console.log("Updated Airtable with call data for lead:", lead.id);
 
@@ -102,14 +192,18 @@ export async function POST(request: NextRequest) {
         }
 
         const qualStatus = structuredOutputs.qualification_status;
-        const callOutcome = qualStatus === "QUALIFIED" ? "Positive"
-          : qualStatus === "NOT_QUALIFIED" ? "Negative"
-          : "Neutral";
+        const callOutcome =
+          qualStatus === "QUALIFIED"
+            ? "Positive"
+            : qualStatus === "NOT_QUALIFIED"
+            ? "Negative"
+            : "Neutral";
         try {
           await createActivity({
             activityType: "Call Made",
             leadId: lead.id,
-            description: structuredOutputs.call_summary || result.summary || "AI qualification call completed",
+            description:
+              structuredOutputs.call_summary || result.summary || "AI qualification call completed",
             outcome: callOutcome,
           });
         } catch (err) {
@@ -125,20 +219,15 @@ export async function POST(request: NextRequest) {
     // Trigger n8n with enriched payload
     console.log("Step 5: Triggering n8n...");
     const n8nData: Record<string, any> = {
-      // Lead info
       lead_id: lead?.id || "",
       lead_name: lead?.name || "",
       lead_email: lead?.email || "",
       lead_company: lead?.company || "",
       lead_phone: result.customerPhone || "",
-
-      // Call info
       call_id: body.message?.call?.id || result.callId,
       call_duration_seconds: body.message?.durationSeconds || result.duration || 0,
       call_duration_formatted: formatDuration(body.message?.durationSeconds || result.duration || 0),
       call_outcome: body.message?.endedReason || result.status,
-
-      // AI analysis from Vapi structured outputs
       qualification_status: structuredOutputs.qualification_status || "",
       pain_points: structuredOutputs.pain_points || "",
       budget_range: structuredOutputs.budget_range || "",
@@ -146,8 +235,6 @@ export async function POST(request: NextRequest) {
       is_decision_maker: structuredOutputs.is_decision_maker ?? false,
       call_summary: structuredOutputs.call_summary || result.summary || "",
       next_steps: structuredOutputs.next_steps || "",
-
-      // Extras
       transcript: body.message?.transcript || "",
       recording_url: body.message?.recordingUrl || "",
     };
