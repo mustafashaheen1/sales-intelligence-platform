@@ -164,6 +164,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build call history entry
+    const callHistoryEntry = {
+      callId: result.callId,
+      date: new Date().toISOString(),
+      duration: result.duration,
+      summary: result.summary,
+      outcome: result.outcome,
+      qualification: result.structuredData
+        ? {
+            budget: result.structuredData.budget_qualification,
+            authority: result.structuredData.decision_maker,
+            need: result.structuredData.needs_identified,
+            timeline: result.structuredData.timeline,
+          }
+        : undefined,
+      keyPoints: structuredOutputs.key_points || [],
+      nextSteps: structuredOutputs.next_steps,
+    };
+
+    // Append to existing call history
+    let callHistory: any[] = [];
+    if (lead?.callHistory) {
+      try {
+        callHistory = JSON.parse(lead.callHistory);
+      } catch {
+        callHistory = [];
+      }
+    }
+    callHistory.push(callHistoryEntry);
+
+    // Check if a meeting was scheduled during the call
+    const scheduledTime =
+      structuredOutputs.scheduled_time || structuredOutputs.meeting_time || null;
+
     // Update Airtable lead with call results and re-score
     if (lead) {
       try {
@@ -174,6 +208,8 @@ export async function POST(request: NextRequest) {
           lastCallDate: new Date().toISOString().split("T")[0],
           lastCallSummary: structuredOutputs.call_summary || result.summary,
           callCount: (lead.callCount || 0) + 1,
+          callHistory: JSON.stringify(callHistory),
+          ...(scheduledTime ? { scheduledMeeting: scheduledTime } : {}),
         });
         console.log("Updated Airtable with call data for lead:", lead.id);
 
