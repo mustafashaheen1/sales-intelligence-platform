@@ -40,6 +40,19 @@ export interface Lead {
   recommendedChannel?: string;
   approachTone?: string;
   createdAt?: string;
+
+  // Call tracking
+  callCount?: number;
+  lastCallSummary?: string;
+  lastCallDate?: string;
+  callHistory?: string; // JSON array of CallHistoryEntry
+
+  // Meeting scheduling
+  scheduledMeeting?: string;
+  meetingLink?: string;
+
+  // Competitor intelligence
+  competitorInfo?: string; // JSON with CompetitorData
 }
 
 export interface Activity {
@@ -61,6 +74,8 @@ export interface Company {
   linkedinUrl?: string;
   companyResearch?: string;
   researchedAt?: string;
+  competitors?: string; // JSON array of CompetitorData
+  competitorAnalysis?: string;
 }
 
 export interface AIScoreResult {
@@ -121,4 +136,36 @@ export interface DemoData {
   leads: Lead[];
   activities: Activity[];
   calls: VapiCall[];
+}
+
+export interface CallHistoryEntry {
+  callId: string;
+  date: string;
+  duration?: number;
+  summary?: string;
+  outcome?: string;
+  qualification?: {
+    budget?: string;
+    authority?: string;
+    need?: string;
+    timeline?: string;
+  };
+  keyPoints?: string[];
+  nextSteps?: string;
+}
+
+export interface CompetitorData {
+  name: string;
+  website?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  pricing?: string;
+  marketPosition?: string;
+  differentiators?: string[];
+}
+
+export interface CalendlySlot {
+  startTime: string;
+  endTime: string;
+  available: boolean;
 }
