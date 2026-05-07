@@ -64,6 +64,13 @@ function mapRecordToLead(record: any): Lead {
     recommendedChannel: record.get("Recommended Channel") || undefined,
     approachTone: record.get("Approach Tone") || undefined,
     createdAt: record.get("Created") || undefined,
+    callCount: record.get("Call Count") as number | undefined,
+    lastCallSummary: record.get("Last Call Summary") as string | undefined,
+    lastCallDate: record.get("Last Call Date") as string | undefined,
+    callHistory: record.get("Call History") as string | undefined,
+    scheduledMeeting: record.get("Scheduled Meeting") as string | undefined,
+    meetingLink: record.get("Meeting Link") as string | undefined,
+    competitorInfo: record.get("Competitor Info") as string | undefined,
   };
 }
 
@@ -163,6 +170,13 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.outreachStrategy !== undefined) fields["Outreach Strategy"] = data.outreachStrategy;
   if (data.recommendedChannel !== undefined) fields["Recommended Channel"] = cleanFieldValue(data.recommendedChannel);
   if (data.approachTone !== undefined) fields["Approach Tone"] = cleanFieldValue(data.approachTone);
+  if (data.callCount !== undefined) fields["Call Count"] = data.callCount;
+  if (data.lastCallSummary !== undefined) fields["Last Call Summary"] = data.lastCallSummary;
+  if (data.lastCallDate !== undefined) fields["Last Call Date"] = data.lastCallDate;
+  if (data.callHistory !== undefined) fields["Call History"] = data.callHistory;
+  if (data.scheduledMeeting !== undefined) fields["Scheduled Meeting"] = data.scheduledMeeting;
+  if (data.meetingLink !== undefined) fields["Meeting Link"] = data.meetingLink;
+  if (data.competitorInfo !== undefined) fields["Competitor Info"] = data.competitorInfo;
 
   const record = await base("Leads").update(id, fields);
   return mapRecordToLead(record);
@@ -197,6 +211,8 @@ function mapRecordToCompany(record: any): Company {
     linkedinUrl: record.get("LinkedIn URL") || undefined,
     companyResearch: record.get("Company Research") || undefined,
     researchedAt: record.get("Researched At") || undefined,
+    competitors: record.get("Competitors") as string | undefined,
+    competitorAnalysis: record.get("Competitor Analysis") as string | undefined,
   };
 }
 
@@ -237,6 +253,8 @@ export async function updateCompany(id: string, data: Partial<Company>): Promise
   if (data.linkedinUrl !== undefined) fields["LinkedIn URL"] = data.linkedinUrl;
   if (data.companyResearch !== undefined) fields["Company Research"] = data.companyResearch;
   if (data.researchedAt !== undefined) fields["Researched At"] = data.researchedAt;
+  if (data.competitors !== undefined) fields["Competitors"] = data.competitors;
+  if (data.competitorAnalysis !== undefined) fields["Competitor Analysis"] = data.competitorAnalysis;
   const record = await base("Companies").update(id, fields);
   return mapRecordToCompany(record);
 }
