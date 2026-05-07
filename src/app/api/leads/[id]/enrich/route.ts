@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLead, updateLead, findCompanyByName, createCompany, updateCompany } from "@/lib/airtable";
-import { enrichLead, researchCompany, generateOutreach } from "@/lib/relevance-ai";
+import { enrichLead, researchCompany, generateOutreach, researchCompetitors } from "@/lib/relevance-ai";
 import { getDemoLeads } from "@/lib/demo-data";
 
 function isDemoMode() {
@@ -185,7 +185,37 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       }
     }
 
-    // Step 3: Run outreach generation with combined data from steps 1 & 2, plus call data
+    // Step 3: Competitor research
+    let competitorData = null;
+    try {
+      console.log("Starting competitor research...");
+      competitorData = await researchCompetitors({
+        companyName: lead.company || lead.name,
+        industry: enrichData?.industry || lead.industry,
+        companySize: enrichData?.estimated_company_size || lead.companySize,
+        website: lead.website || company?.website,
+      });
+      console.log("Competitor research complete:", competitorData?.competitors?.length, "competitors found");
+    } catch (competitorError) {
+      console.error("Competitor research failed:", competitorError);
+    }
+
+    if (competitorData) {
+      updateData.competitorInfo = JSON.stringify(competitorData.competitors);
+    }
+
+    if (competitorData && company) {
+      try {
+        await updateCompany(company.id, {
+          competitors: JSON.stringify(competitorData.competitors),
+          competitorAnalysis: competitorData.competitiveAnalysis,
+        });
+      } catch (e) {
+        console.error("Failed to update company with competitor data:", e);
+      }
+    }
+
+    // Step 4: Run outreach generation with combined data from steps 1 & 2, plus call data
     if (hasOutreachConfig) {
       try {
         let callPainPoints = "";
@@ -234,7 +264,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     const updatedLead = await updateLead(params.id, updateData);
-    return NextResponse.json({ lead: updatedLead, company });
+    return NextResponse.json({
+      lead: updatedLead,
+      company,
+      enrichment: enrichData,
+      research: researchData,
+      competitors: competitorData,
+    });
   } catch (error) {
     console.error("Error enriching lead:", error);
     return NextResponse.json({ error: "Failed to enrich lead" }, { status: 500 });
