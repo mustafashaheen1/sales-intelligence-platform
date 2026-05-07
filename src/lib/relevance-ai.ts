@@ -116,7 +116,7 @@ export async function researchCompany(companyName: string): Promise<Record<strin
   return response.json();
 }
 
-export async function generateOutreach(params: {
+export async function generateOutreachStrategy(params: {
   lead_name: string;
   lead_email: string;
   job_title: string;

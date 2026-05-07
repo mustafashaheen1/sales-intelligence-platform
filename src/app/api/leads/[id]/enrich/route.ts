@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLead, updateLead, findCompanyByName, createCompany, updateCompany } from "@/lib/airtable";
-import { enrichLead, researchCompany, generateOutreach, researchCompetitors } from "@/lib/relevance-ai";
+import { enrichLead, researchCompany, generateOutreachStrategy, researchCompetitors } from "@/lib/relevance-ai";
 import { getDemoLeads } from "@/lib/demo-data";
 
 function isDemoMode() {
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           ? enrichData.ai_automation_opportunities.join(", ")
           : "";
 
-        const outreachResult = await generateOutreach({
+        const outreachResult = await generateOutreachStrategy({
           lead_name: lead.name,
           lead_email: lead.email,
           job_title: enrichData?.title || enrichData?.job_title || lead.title || "",
