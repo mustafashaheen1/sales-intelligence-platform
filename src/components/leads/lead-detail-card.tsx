@@ -12,7 +12,7 @@ import {
   CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
   Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle,
   Newspaper, Code2, TrendingUp, Shield, Crosshair, Search,
-  ChevronDown, ChevronUp, Copy, Clock, Hash, HelpCircle, ClipboardList, RotateCw,
+  ChevronDown, ChevronUp, Copy, Clock, Hash, HelpCircle, ClipboardList, RotateCw, Swords,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -935,6 +935,90 @@ export function LeadDetailCard({ lead, onScore, onScheduleCall, onEnrich, compan
 
       {/* Outreach Strategy */}
       {lead.outreachStrategy && <OutreachStrategyCard outreachStrategy={lead.outreachStrategy} />}
+
+      {/* Competitor Intelligence */}
+      {lead.competitorInfo && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Swords className="h-4 w-4 text-orange-500" />
+              Competitor Intelligence
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(() => {
+              try {
+                const competitors =
+                  typeof lead.competitorInfo === "string"
+                    ? JSON.parse(lead.competitorInfo)
+                    : lead.competitorInfo;
+
+                if (!Array.isArray(competitors) || competitors.length === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground">No competitor data available</p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {competitors.slice(0, 3).map((competitor: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">{competitor.name}</span>
+                          {competitor.marketPosition && (
+                            <Badge variant="outline" className="text-xs">
+                              {competitor.marketPosition}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {competitor.description && (
+                          <p className="text-xs text-muted-foreground">{competitor.description}</p>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {competitor.strengths?.length > 0 && (
+                            <div>
+                              <span className="font-medium text-green-600">Strengths:</span>
+                              <ul className="list-disc list-inside text-muted-foreground">
+                                {competitor.strengths.slice(0, 2).map((s: string, i: number) => (
+                                  <li key={i}>{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {competitor.weaknesses?.length > 0 && (
+                            <div>
+                              <span className="font-medium text-red-600">Weaknesses:</span>
+                              <ul className="list-disc list-inside text-muted-foreground">
+                                {competitor.weaknesses.slice(0, 2).map((w: string, i: number) => (
+                                  <li key={i}>{w}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {competitor.pricing && competitor.pricing !== "Unknown" && (
+                          <p className="text-xs">
+                            <span className="font-medium">Pricing:</span>{" "}
+                            <span className="text-muted-foreground">{competitor.pricing}</span>
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              } catch (e) {
+                return (
+                  <p className="text-sm text-muted-foreground">Unable to parse competitor data</p>
+                );
+              }
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notes */}
       {lead.notes && (
