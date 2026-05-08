@@ -219,9 +219,11 @@ export async function POST(request: NextRequest) {
     const scheduledTime =
       structuredOutputs.scheduled_time || structuredOutputs.meeting_time || null;
 
-    // Update Airtable lead with call results and re-score
+    // Update Airtable lead with call results, always re-score, always regenerate outreach
     if (lead) {
       try {
+        const previousScore = lead.aiScore;
+
         // Step 1: Save call data
         await updateLead(lead.id, {
           vapiCallStatus: result.status,
@@ -235,68 +237,77 @@ export async function POST(request: NextRequest) {
         });
         console.log("Updated Airtable with call data for lead:", lead.id);
 
-        // Step 2: Re-score and regenerate outreach if there's meaningful call data
-        const hasCallSignal = !!(structuredOutputs.qualification_status || structuredOutputs.call_summary);
-        if (hasCallSignal) {
-          // Re-score
-          console.log("Re-scoring lead with call data...");
-          const reScoreResult = await scoreLeadWithCallData(lead, structuredOutputs);
-          await updateLead(lead.id, {
-            aiScore: reScoreResult.score,
-            aiScoreLabel: reScoreResult.scoreLabel,
-            aiInsights: reScoreResult.insights,
-            keyStrengths: reScoreResult.keyStrengths,
-            concerns: reScoreResult.concerns,
-            suggestedNextStep: reScoreResult.suggestedNextStep,
-          });
-          console.log("Lead re-scored:", reScoreResult.score, reScoreResult.scoreLabel);
+        // Step 2: Always re-score based on call outcome (score can go up or down)
+        console.log(`Re-scoring lead ${lead.name} (was: ${previousScore} ${lead.aiScoreLabel})...`);
+        const reScoreResult = await scoreLeadWithCallData(lead, structuredOutputs);
+        console.log(`New score: ${reScoreResult.score} ${reScoreResult.scoreLabel} (was: ${previousScore})`);
 
-          // Step 3: Regenerate outreach strategy based on call outcome
-          if (process.env.OPENAI_API_KEY) {
-            try {
-              const qualStatus = structuredOutputs.qualification_status || "";
-              const outreachTone =
-                qualStatus === "QUALIFIED" ? "professional"
-                : qualStatus === "NOT_QUALIFIED" ? "friendly"
-                : "casual";
-              const leadWithCallData = {
-                ...lead,
-                vapiCallData: JSON.stringify(structuredOutputs),
-                aiScore: reScoreResult.score,
-                aiInsights: reScoreResult.insights,
-                suggestedNextStep: reScoreResult.suggestedNextStep,
-              };
-              const emailDraft = await generateOutreach(leadWithCallData as any, "email", outreachTone as any);
-              const outreachJson = JSON.stringify({
+        // Calculate next follow-up date from followUpTiming string
+        let nextFollowUpDate: string | undefined;
+        const timing = (reScoreResult.followUpTiming || "").toLowerCase();
+        if (timing && !timing.includes("do not")) {
+          const now = Date.now();
+          let daysToAdd = 0;
+          if (timing.includes("2 day") || timing.includes("two day")) daysToAdd = 2;
+          else if (timing.includes("3 day") || timing.includes("three day")) daysToAdd = 3;
+          else if (timing.includes("1 week") || timing.includes("one week")) daysToAdd = 7;
+          else if (timing.includes("2 week") || timing.includes("two week")) daysToAdd = 14;
+          else if (timing.includes("1 month") || timing.includes("one month")) daysToAdd = 30;
+          else if (timing.includes("2 month") || timing.includes("two month")) daysToAdd = 60;
+          if (daysToAdd > 0) {
+            nextFollowUpDate = new Date(now + daysToAdd * 86400000).toISOString().split("T")[0];
+          }
+        }
+
+        await updateLead(lead.id, {
+          aiScore: reScoreResult.score,
+          aiScoreLabel: reScoreResult.scoreLabel,
+          aiInsights: reScoreResult.insights,
+          keyStrengths: reScoreResult.keyStrengths,
+          concerns: reScoreResult.concerns,
+          suggestedNextStep: reScoreResult.suggestedNextStep,
+          ...(nextFollowUpDate ? { nextFollowUp: nextFollowUpDate } : {}),
+        });
+
+        // Step 3: Always regenerate outreach strategy based on new score + call context
+        if (process.env.OPENAI_API_KEY) {
+          try {
+            const outreachTone =
+              reScoreResult.score >= 70 ? "professional"
+              : reScoreResult.score >= 40 ? "friendly"
+              : "casual";
+            const leadWithCallData = {
+              ...lead,
+              vapiCallData: JSON.stringify(structuredOutputs),
+              aiScore: reScoreResult.score,
+              aiInsights: reScoreResult.insights,
+              suggestedNextStep: reScoreResult.suggestedNextStep,
+            };
+            const emailDraft = await generateOutreach(leadWithCallData as any, "email", outreachTone as any);
+            const qualStatus = structuredOutputs.qualification_status || "";
+            await updateLead(lead.id, {
+              outreachStrategy: JSON.stringify({
                 source: "post-call",
                 call_outcome: qualStatus,
                 recommended_channel: "Email",
                 approach_tone: outreachTone,
-                follow_up_email: {
-                  subject: emailDraft.subject,
-                  message: emailDraft.message,
-                },
+                follow_up_email: { subject: emailDraft.subject, message: emailDraft.message },
                 generated_at: new Date().toISOString(),
-              });
-              await updateLead(lead.id, {
-                outreachStrategy: outreachJson,
-                recommendedChannel: "Email",
-                approachTone: outreachTone.charAt(0).toUpperCase() + outreachTone.slice(1),
-              });
-              console.log("Outreach strategy regenerated post-call");
-            } catch (outreachErr) {
-              console.error("Failed to regenerate outreach after call:", outreachErr);
-            }
+              }),
+              recommendedChannel: "Email",
+              approachTone: outreachTone.charAt(0).toUpperCase() + outreachTone.slice(1),
+            });
+            console.log("Outreach strategy regenerated post-call");
+          } catch (outreachErr) {
+            console.error("Failed to regenerate outreach after call:", outreachErr);
           }
         }
 
         const qualStatus = structuredOutputs.qualification_status;
         const callOutcome =
-          qualStatus === "QUALIFIED"
-            ? "Positive"
-            : qualStatus === "NOT_QUALIFIED"
-            ? "Negative"
-            : "Neutral";
+          qualStatus === "QUALIFIED" ? "Positive"
+          : qualStatus === "NOT_QUALIFIED" ? "Negative"
+          : "Neutral";
         try {
           await createActivity({
             activityType: "Call Made",
@@ -345,7 +356,7 @@ export async function POST(request: NextRequest) {
       console.error("Failed to trigger n8n:", err);
     }
 
-    return NextResponse.json({ received: true });
+    return NextResponse.json({ received: true, leadId: lead?.id || null });
   } catch (error) {
     console.error("Vapi webhook error:", error);
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });

@@ -1,7 +1,13 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import OpenAI from "openai";
 import { AIScoreResult, Lead, OutreachType, OutreachTone, OutreachResult } from "@/types";
 import { getScoreLabel } from "./utils";
+
+function getOpenAI() {
+  if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 function getModel() {
   if (!process.env.OPENAI_API_KEY) {
@@ -79,11 +85,11 @@ export async function scoreLeadWithCallData(
     call_outcome?: string;
     next_steps?: string;
   }
-): Promise<AIScoreResult & { followUpTiming?: string }> {
+): Promise<AIScoreResult & { followUpTiming: string }> {
   const qualStatus = callData.qualification_status || callData.call_outcome || "";
   const wasNoAnswer = ["no-answer", "no_answer", "NO_ANSWER", "voicemail"].includes(qualStatus);
 
-  // Keep previous score for unanswered calls — no new signal to act on
+  // No new signal from unanswered calls — preserve current score
   if (wasNoAnswer && lead.aiScore !== undefined) {
     return {
       score: lead.aiScore,
@@ -92,64 +98,69 @@ export async function scoreLeadWithCallData(
       keyStrengths: lead.keyStrengths || [],
       concerns: lead.concerns || [],
       suggestedNextStep: lead.suggestedNextStep || "Retry call in 2-3 days",
-      followUpTiming: "2-3 days",
+      followUpTiming: "In 2 days",
     };
   }
 
-  const wasInterested =
-    !["NOT_QUALIFIED", "not_qualified", "NO_INTEREST", "no_interest"].includes(qualStatus);
+  const openai = getOpenAI();
 
-  const model = getModel();
+  const prompt = `You are a lead scoring AI. Re-evaluate this lead based on a recent phone call. The score can go UP or DOWN based on what happened.
 
-  const prompt = `You are an AI sales assistant analyzing a lead AFTER a qualification call.
-
-LEAD PROFILE:
+LEAD INFO:
 - Name: ${lead.name || "Unknown"}
 - Company: ${lead.company || "Unknown"}
 - Title: ${lead.title || "Unknown"}
-- Source: ${lead.leadSource || "Unknown"}
-- Previous Score: ${lead.aiScore ?? "None"}
+- Previous Score: ${lead.aiScore ?? "Unknown"}
+- Previous Label: ${lead.aiScoreLabel || "Unknown"}
 
 CALL RESULTS:
-- Qualification: ${qualStatus || "Unknown"}
-- Showed Interest: ${wasInterested ? "Yes" : "No"}
-- Summary: ${callData.call_summary || "No summary"}
-- Pain Points: ${callData.pain_points || "None identified"}
-- Budget: ${callData.budget_range || "Not discussed"}
+- Call Summary: ${callData.call_summary || "No summary provided"}
+- Call Outcome: ${qualStatus || "Unknown"}
+- Pain Points Mentioned: ${callData.pain_points || "None identified"}
+- Budget Range: ${callData.budget_range || "Not discussed"}
 - Timeline: ${callData.timeline || "Not discussed"}
-- Decision Maker: ${callData.is_decision_maker ?? "Unknown"}
+- Is Decision Maker: ${callData.is_decision_maker !== undefined ? (callData.is_decision_maker ? "Yes" : "No") : "Unknown"}
 - Next Steps Agreed: ${callData.next_steps || "None"}
 
-Score this lead (0-100) based on call outcome:
-- QUALIFIED + budget + decision maker = 85-100 (Hot)
-- QUALIFIED + some unknowns = 70-84 (Hot)
-- NEEDS_FOLLOW_UP or partial interest = 50-69 (Warm)
-- NOT_QUALIFIED or no interest shown = 20-49 (Cold)
+RE-SCORE THIS LEAD based on what happened in the call. Score can go UP or DOWN.
 
-Return ONLY valid JSON:
-{
-  "score": <number>,
-  "scoreLabel": "Hot 🔥" or "Warm 🌡️" or "Cold ❄️",
-  "insights": "<2-3 sentences summarising call findings and lead quality>",
-  "keyStrengths": ["<strength revealed during call>"],
-  "concerns": ["<objection or concern raised>"],
-  "suggestedNextStep": "<specific action based on call outcome>",
-  "followUpTiming": "<e.g. '24 hours', '1 week', '2 weeks', 'Do not follow up'>"
-}`;
+INCREASE SCORE if:
+- They expressed clear interest → +20 to +40 points
+- They mentioned specific pain points we can solve → +15 points
+- They have budget allocated → +15 points
+- They have a clear timeline (1-3 months) → +10 points
+- They are the decision maker → +10 points
+- They asked about pricing or features → +10 points
+- They agreed to a follow-up meeting → +20 points
 
-  const response = await model.invoke([new HumanMessage(prompt)]);
-  const content = typeof response.content === "string" ? response.content : "";
+DECREASE SCORE if:
+- They said "not interested" or similar → -30 to -50 points
+- No pain points, "everything is fine" → -20 points
+- No budget → -15 points
+- No timeline or "maybe next year" → -10 points
+- Not decision maker and won't connect us → -10 points
+- Dismissive, one-word answers → -15 points
+- Asked not to be contacted again → Set score to 5
 
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Failed to parse AI response");
+KEEP SCORE SIMILAR if:
+- Very short call, no real conversation
+- Vague interest, no specifics
 
-  const parsed = JSON.parse(jsonMatch[0]);
+FINAL SCORE RANGES:
+- 70-100: Hot 🔥 (clearly interested, BANT criteria met)
+- 40-69: Warm 🌡️ (some interest, missing BANT criteria)
+- 10-39: Cold ❄️ (not interested, no urgency, poor fit)
+- 0-9: Do Not Contact (explicitly asked not to be contacted)`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+    response_format: { type: "json_object" },
+  });
+
+  const parsed = JSON.parse(response.choices[0].message.content || "{}");
   const score = Math.min(100, Math.max(0, Number(parsed.score)));
-  const followUpTiming: string | undefined = parsed.followUpTiming || undefined;
-
-  const suggestedNextStep = followUpTiming
-    ? `${parsed.suggestedNextStep || "Follow up based on call outcome"} (follow up: ${followUpTiming})`
-    : parsed.suggestedNextStep || "Follow up based on call outcome";
 
   return {
     score,
@@ -157,8 +168,8 @@ Return ONLY valid JSON:
     insights: typeof parsed.insights === "string" ? parsed.insights : "",
     keyStrengths: Array.isArray(parsed.keyStrengths) ? parsed.keyStrengths : [],
     concerns: Array.isArray(parsed.concerns) ? parsed.concerns : [],
-    suggestedNextStep,
-    followUpTiming,
+    suggestedNextStep: parsed.suggestedNextStep || "Follow up based on call outcome",
+    followUpTiming: parsed.followUpTiming || "In 1 week",
   };
 }
 
