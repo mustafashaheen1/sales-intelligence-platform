@@ -33,11 +33,9 @@ async function handleAssistantRequest(body: any) {
       const user = await getCalendlyUser();
       const eventTypes = await getEventTypes(user.uri);
       if (eventTypes.length > 0) {
-        const startDate = new Date().toISOString().split("T")[0];
-        const endDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0];
-        const slots = await getAvailableSlots(eventTypes[0].uri, startDate, endDate);
+        const startTime = new Date(Date.now() + 60 * 1000).toISOString();
+        const endTime = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        const slots = await getAvailableSlots(eventTypes[0].uri, startTime, endTime);
         availableSlotsFormatted = formatSlotsForAI(slots.filter((s) => s.available));
         schedulingLink = eventTypes[0].schedulingUrl;
       }

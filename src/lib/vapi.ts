@@ -67,7 +67,11 @@ export async function scheduleVapiCall(params: {
   };
 
   if (systemPrompt) {
+    const modelProvider = process.env.VAPI_MODEL_PROVIDER || "openai";
+    const modelName = process.env.VAPI_MODEL_NAME || "gpt-4o";
     requestBody.assistantOverrides.model = {
+      provider: modelProvider,
+      model: modelName,
       messages: [{ role: "system", content: systemPrompt }],
     };
   }

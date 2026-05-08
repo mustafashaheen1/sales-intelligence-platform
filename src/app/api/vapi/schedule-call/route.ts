@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scheduleVapiCall } from "@/lib/vapi";
-import { getLead, updateLead } from "@/lib/airtable";
+import { getLead, updateLead, getCompany } from "@/lib/airtable";
 import { formatPhoneForVapi } from "@/lib/utils";
 import { getCalendlyUser, getEventTypes, getAvailableSlots, formatSlotsForAI } from "@/lib/calendly";
 
@@ -27,13 +27,7 @@ export async function POST(request: NextRequest) {
       // Get company data if linked
       if (lead?.companyLinkId) {
         try {
-          const companyRes = await fetch(
-            `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/companies/${lead.companyLinkId}`
-          );
-          if (companyRes.ok) {
-            const companyData = await companyRes.json();
-            company = companyData.company;
-          }
+          company = await getCompany(lead.companyLinkId);
         } catch (e) {
           console.error("Failed to fetch company:", e);
         }
@@ -45,11 +39,9 @@ export async function POST(request: NextRequest) {
           const user = await getCalendlyUser();
           const eventTypes = await getEventTypes(user.uri);
           if (eventTypes.length > 0) {
-            const startDate = new Date().toISOString().split("T")[0];
-            const endDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-              .toISOString()
-              .split("T")[0];
-            const slots = await getAvailableSlots(eventTypes[0].uri, startDate, endDate);
+            const startTime = new Date(Date.now() + 60 * 1000).toISOString();
+            const endTime = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+            const slots = await getAvailableSlots(eventTypes[0].uri, startTime, endTime);
             const available = slots.filter((s) => s.available);
             availableSlotsFormatted = formatSlotsForAI(available);
             schedulingLink = eventTypes[0].schedulingUrl;

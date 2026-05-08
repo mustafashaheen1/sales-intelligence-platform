@@ -55,14 +55,15 @@ export async function getEventTypes(userUri: string): Promise<Array<{
   }));
 }
 
-// Get available time slots for a specific event type
+// Get available time slots for a specific event type.
+// startTime and endTime must be full ISO timestamps; range must not exceed 7 days.
 export async function getAvailableSlots(
   eventTypeUri: string,
-  startDate: string, // ISO date string (YYYY-MM-DD)
-  endDate: string    // ISO date string (YYYY-MM-DD)
+  startTime: string, // Full ISO timestamp (e.g. new Date().toISOString())
+  endTime: string    // Full ISO timestamp, max 7 days after startTime
 ): Promise<CalendlySlot[]> {
   const response = await fetch(
-    `${CALENDLY_API_BASE}/event_type_available_times?event_type=${encodeURIComponent(eventTypeUri)}&start_time=${startDate}T00:00:00Z&end_time=${endDate}T23:59:59Z`,
+    `${CALENDLY_API_BASE}/event_type_available_times?event_type=${encodeURIComponent(eventTypeUri)}&start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`,
     { headers: getHeaders() }
   );
 
