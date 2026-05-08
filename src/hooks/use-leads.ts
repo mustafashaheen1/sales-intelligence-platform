@@ -46,7 +46,15 @@ export function useLeads(options?: UseLeadsOptions) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Failed to create lead");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const err: any = new Error(body.error || "Failed to create lead");
+      err.status = res.status;
+      err.field = body.field;
+      err.existingLeadId = body.existingLeadId;
+      err.error = body.error;
+      throw err;
+    }
     const result = await res.json();
     await fetchLeads();
     return result.lead;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLeads, createLead, createActivity } from "@/lib/airtable";
+import { getLeads, createLead, createActivity, findLeadByPhoneOrEmail } from "@/lib/airtable";
 import { getDemoLeads } from "@/lib/demo-data";
 import { scoreLead } from "@/lib/langchain";
 import { triggerN8nWorkflow } from "@/lib/n8n";
@@ -83,6 +83,19 @@ export async function POST(request: NextRequest) {
       };
       newLead.aiScoreLabel = getScoreLabel(newLead.aiScore);
       return NextResponse.json({ lead: newLead });
+    }
+
+    const { existingLead, duplicateField } = await findLeadByPhoneOrEmail(body.phone, body.email);
+    if (existingLead && duplicateField) {
+      const messages: Record<string, string> = {
+        phone: "A lead with this phone number already exists",
+        email: "A lead with this email already exists",
+        both: "A lead with this email and phone number already exists",
+      };
+      return NextResponse.json(
+        { error: messages[duplicateField], field: duplicateField, existingLeadId: existingLead.id },
+        { status: 409 }
+      );
     }
 
     let lead = await createLead({

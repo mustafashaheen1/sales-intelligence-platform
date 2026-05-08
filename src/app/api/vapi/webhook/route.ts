@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseVapiWebhook } from "@/lib/vapi";
 import { triggerN8nWorkflow } from "@/lib/n8n";
-import { getLead, getLeads, updateLead, createActivity, createLead } from "@/lib/airtable";
+import { getLead, getLeads, updateLead, createActivity, createLead, findLeadByPhoneOrEmail } from "@/lib/airtable";
 import { scoreLeadWithCallData } from "@/lib/langchain";
 import { normalizePhone } from "@/lib/utils";
 
@@ -89,9 +89,9 @@ export async function POST(request: NextRequest) {
     const customerPhone = body.message?.call?.customer?.number || result.customerPhone;
     console.log("Metadata leadId:", metadataLeadId, "callType:", callType, "knownLead:", knownLead);
 
-    // Handle inbound call from an unknown caller — create a new lead
+    // Handle inbound call from an unknown caller — create or update lead
     if (callType === "inbound" && knownLead === false && customerPhone) {
-      console.log("Creating lead from inbound call:", customerPhone);
+      console.log("Handling inbound call from unknown caller:", customerPhone);
 
       const transcript = body.message?.transcript;
       const extractedName =
@@ -109,6 +109,27 @@ export async function POST(request: NextRequest) {
         `${normalizePhone(customerPhone)}@unknown.com`;
 
       try {
+        // Check if a lead already exists for this phone number
+        const { existingLead } = await findLeadByPhoneOrEmail(customerPhone, undefined);
+
+        if (existingLead) {
+          console.log("Found existing lead for inbound phone, updating:", existingLead.id);
+          await updateLead(existingLead.id, {
+            vapiCallStatus: "Completed",
+            vapiCallSummary: result.summary || "Inbound call",
+            callCount: (existingLead.callCount || 0) + 1,
+            lastCallDate: new Date().toISOString().split("T")[0],
+            lastCallSummary: result.summary,
+          });
+          await createActivity({
+            activityType: "Call Made",
+            leadId: existingLead.id,
+            description: `Inbound call received. Duration: ${formatDuration(result.duration || 0)}. ${result.summary || ""}`,
+            outcome: result.outcome === "success" ? "Positive" : "Neutral",
+          });
+          return NextResponse.json({ success: true, leadId: existingLead.id, created: false });
+        }
+
         const newLead = await createLead({
           name: extractedName,
           phone: normalizePhone(customerPhone),
@@ -133,7 +154,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, leadId: newLead.id, created: true });
       } catch (createError) {
-        console.error("Failed to create lead from inbound call:", createError);
+        console.error("Failed to handle inbound call lead:", createError);
       }
     }
 

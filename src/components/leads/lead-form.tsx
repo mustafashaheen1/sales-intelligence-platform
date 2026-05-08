@@ -94,8 +94,20 @@ export function LeadForm({ open, onOpenChange, onSubmit, initialData, mode = "cr
       onOpenChange(false);
       setFormData({ name: "", email: "", phone: "", company: "", title: "", linkedinUrl: "", notes: "" });
       setErrors({});
-    } catch (err) {
-      toast.error("Something went wrong");
+    } catch (err: any) {
+      if (err?.status === 409 || err?.field) {
+        const field = err.field as "phone" | "email" | "both";
+        const existingLeadId = err.existingLeadId;
+        const newErrors: Record<string, string> = {};
+        if (field === "phone" || field === "both") newErrors.phone = "Duplicate phone number";
+        if (field === "email" || field === "both") newErrors.email = err.error;
+        if (field === "phone") newErrors.phone = err.error;
+        if (existingLeadId) newErrors._duplicateLeadId = existingLeadId;
+        setErrors(newErrors);
+        toast.error(err.error || "Duplicate lead detected");
+      } else {
+        toast.error("Something went wrong");
+      }
     } finally {
       setLoading(false);
       setScoring(false);
@@ -121,8 +133,22 @@ export function LeadForm({ open, onOpenChange, onSubmit, initialData, mode = "cr
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
-              <Input id="email" type="text" value={formData.email || ""} onChange={(e) => update("email", e.target.value)} placeholder="john@company.com" />
-              {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
+              <Input
+                id="email"
+                type="text"
+                value={formData.email || ""}
+                onChange={(e) => update("email", e.target.value)}
+                placeholder="john@company.com"
+                className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+              {errors.email && (
+                <p className="text-xs text-destructive mt-1">
+                  {errors.email}
+                  {errors._duplicateLeadId && (
+                    <>{" "}<a href={`/leads/${errors._duplicateLeadId}`} className="underline font-medium">View existing lead</a></>
+                  )}
+                </p>
+              )}
             </div>
           </div>
 
@@ -137,9 +163,17 @@ export function LeadForm({ open, onOpenChange, onSubmit, initialData, mode = "cr
                 maxLength={10}
                 inputMode="numeric"
                 pattern="[0-9]*"
+                className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
               />
               <p className="text-xs text-muted-foreground">10 digits only, no country code</p>
-              {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+              {errors.phone && (
+                <p className="text-xs text-destructive">
+                  {errors.phone}
+                  {errors._duplicateLeadId && (
+                    <>{" "}<a href={`/leads/${errors._duplicateLeadId}`} className="underline font-medium">View existing lead</a></>
+                  )}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="company">Company</Label>

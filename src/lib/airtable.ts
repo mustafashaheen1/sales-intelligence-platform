@@ -182,6 +182,37 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   return mapRecordToLead(record);
 }
 
+export async function findLeadByPhoneOrEmail(phone?: string, email?: string): Promise<{
+  existingLead: Lead | null;
+  duplicateField: "phone" | "email" | "both" | null;
+}> {
+  if (!phone && !email) return { existingLead: null, duplicateField: null };
+
+  const base = getBase();
+  const conditions: string[] = [];
+  const normalizedPhone = phone ? normalizePhone(phone) : null;
+
+  if (normalizedPhone) conditions.push(`{Phone} = "${normalizedPhone}"`);
+  if (email) conditions.push(`{Email} = "${email.toLowerCase().trim()}"`);
+
+  const formula = conditions.length === 2 ? `OR(${conditions.join(", ")})` : conditions[0];
+
+  const records = await base("Leads").select({ filterByFormula: formula, maxRecords: 2 }).all();
+
+  if (records.length === 0) return { existingLead: null, duplicateField: null };
+
+  const lead = mapRecordToLead(records[0]);
+  const phoneMatch = normalizedPhone && lead.phone && normalizePhone(lead.phone) === normalizedPhone;
+  const emailMatch = email && lead.email && lead.email.toLowerCase().trim() === email.toLowerCase().trim();
+
+  let duplicateField: "phone" | "email" | "both" | null = null;
+  if (phoneMatch && emailMatch) duplicateField = "both";
+  else if (phoneMatch) duplicateField = "phone";
+  else if (emailMatch) duplicateField = "email";
+
+  return { existingLead: lead, duplicateField };
+}
+
 export async function deleteLead(id: string): Promise<void> {
   const base = getBase();
   await base("Leads").destroy(id);
