@@ -465,6 +465,108 @@ function EnrichmentDataCard({ enrichmentData, enrichedAt, companyResearch, resea
 
 // --- Section 4-8: Outreach Strategy Card ---
 
+function CallHistoryCard({ lead }: { lead: Lead }) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  const history: any[] = (() => {
+    if (!lead.callHistory) return [];
+    try {
+      return JSON.parse(typeof lead.callHistory === "string" ? lead.callHistory : JSON.stringify(lead.callHistory));
+    } catch { return []; }
+  })();
+
+  const outcomeColor = (outcome: string) => {
+    const o = (outcome || "").toUpperCase();
+    if (o === "QUALIFIED") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    if (o === "NOT_QUALIFIED") return "bg-red-500/10 text-red-400 border-red-500/20";
+    return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <PhoneCall className="h-4 w-4 text-primary" /> Call History
+          <Badge variant="secondary" className="ml-auto text-xs">{history.length} call{history.length !== 1 ? "s" : ""}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {lead.lastCallSummary && history.length === 0 && (
+          <div className="rounded-lg border p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Last Call</span>
+              {lead.lastCallDate && (
+                <span className="text-xs text-muted-foreground">{new Date(lead.lastCallDate).toLocaleDateString()}</span>
+              )}
+            </div>
+            <p className="text-sm">{lead.lastCallSummary}</p>
+          </div>
+        )}
+
+        {history.slice().reverse().map((call: any, i: number) => {
+          const isOpen = expanded === i;
+          const callDate = call.date ? new Date(call.date) : null;
+          const durationMins = call.duration ? Math.round(call.duration / 60) : null;
+          return (
+            <div key={call.callId || i} className="rounded-lg border overflow-hidden">
+              <button
+                className="w-full flex items-center gap-3 p-3 hover:bg-muted/30 transition-colors text-left"
+                onClick={() => setExpanded(isOpen ? null : i)}
+              >
+                <Badge variant="outline" className={cn("text-xs shrink-0", outcomeColor(call.outcome))}>
+                  {call.outcome || "Unknown"}
+                </Badge>
+                <span className="text-sm flex-1 truncate">{call.summary || "No summary"}</span>
+                <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
+                  {callDate && <span>{callDate.toLocaleDateString()}</span>}
+                  {durationMins !== null && <span>{durationMins}m</span>}
+                  {call.scoreAfterCall !== undefined && (
+                    <Badge variant="secondary" className="text-xs">{call.scoreAfterCall}</Badge>
+                  )}
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </div>
+              </button>
+              {isOpen && (
+                <div className="border-t px-3 py-3 space-y-2 bg-muted/20">
+                  {call.summary && (
+                    <p className="text-sm text-muted-foreground">{call.summary}</p>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {call.painPoints && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Pain Points</span>
+                        <p className="text-xs mt-0.5">{call.painPoints}</p>
+                      </div>
+                    )}
+                    {(call.budgetRange || call.qualification?.budget) && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Budget</span>
+                        <p className="text-xs mt-0.5">{call.budgetRange || call.qualification?.budget}</p>
+                      </div>
+                    )}
+                    {(call.timeline || call.qualification?.timeline) && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Timeline</span>
+                        <p className="text-xs mt-0.5">{call.timeline || call.qualification?.timeline}</p>
+                      </div>
+                    )}
+                    {call.nextSteps && (
+                      <div className="col-span-2">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Next Steps</span>
+                        <p className="text-xs mt-0.5">{call.nextSteps}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }) {
   const data = useMemo(() => parseOutreachStrategy(outreachStrategy), [outreachStrategy]);
 
@@ -958,6 +1060,9 @@ export function LeadDetailCard({ lead, onScore, onScheduleCall, onEnrich, compan
           </CardContent>
         </Card>
       )}
+
+      {/* Call History */}
+      {(lead.callHistory || lead.lastCallSummary) && <CallHistoryCard lead={lead} />}
 
       {/* Intelligence Report (combined enrichment + company research) */}
       {(lead.enrichmentData || companyData?.companyResearch) && (

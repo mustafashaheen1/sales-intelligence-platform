@@ -1,10 +1,19 @@
 import { Lead, Company, CallHistoryEntry } from "@/types";
 
+interface OutreachData {
+  discoveryQuestions: string[];
+  objectionHandling: Array<{ objection: string; response: string }>;
+  valuePropositions: string[];
+  personalizationHooks: string[];
+  bestTimeToReach?: string;
+}
+
 interface CallContext {
   isFollowUp: boolean;
   callNumber: number;
   previousCallSummary?: string;
   previousCallDate?: string;
+  callHistory?: CallHistoryEntry[];
   qualification?: {
     budget?: string;
     authority?: string;
@@ -13,19 +22,56 @@ interface CallContext {
   };
   enrichmentData?: {
     painPoints: string[];
+    aiOpportunities: string[];
     industry?: string;
     companySize?: string;
+    estimatedRevenue?: string;
     icpFitScore?: number;
-    recommendedTone?: string;
-    discoveryQuestions?: string[];
+    seniorityLevel?: string;
+    recommendedApproach?: string;
     talkingPoints?: string[];
   };
+  outreachData?: OutreachData;
   competitorInfo?: {
-    competitors: string[];
+    competitors: Array<{ name: string; strengths?: string[]; weaknesses?: string[] }>;
     ourAdvantages: string[];
   };
+  companyOverview?: string;
   availableSlots?: string;
   schedulingLink?: string;
+}
+
+// Parse the nested JSON wrapper Relevance AI wraps responses in
+function parseNestedJson(raw: any): any {
+  if (!raw) return null;
+  try {
+    const outer = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const inner = outer.answer ?? outer.output?.answer ?? outer.output ?? outer;
+    if (typeof inner === "string") {
+      return JSON.parse(inner.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim());
+    }
+    return inner;
+  } catch {
+    return null;
+  }
+}
+
+function parseObjectionHandling(
+  raw: any
+): Array<{ objection: string; response: string }> {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((o: any) => o && (o.objection || o.response))
+      .map((o: any) => ({ objection: o.objection || "", response: o.response || "" }));
+  }
+  if (typeof raw === "object") {
+    return Object.entries(raw).map(([objection, response]) => ({
+      objection,
+      response: String(response),
+    }));
+  }
+  return [];
 }
 
 export function buildCallContext(
@@ -45,7 +91,20 @@ export function buildCallContext(
     context.previousCallDate = lead.lastCallDate;
   }
 
-  // Parse call history for qualification data
+  // Full call history
+  if (lead.callHistory) {
+    try {
+      const history =
+        typeof lead.callHistory === "string" ? JSON.parse(lead.callHistory) : lead.callHistory;
+      if (Array.isArray(history) && history.length > 0) {
+        context.callHistory = history;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Qualification from last call data
   if (lead.vapiCallData) {
     try {
       const callData =
@@ -53,34 +112,59 @@ export function buildCallContext(
           ? JSON.parse(lead.vapiCallData)
           : lead.vapiCallData;
       context.qualification = {
-        budget: callData.budget_qualification,
-        authority: callData.decision_maker,
-        need: callData.needs_identified,
+        budget: callData.budget_range || callData.budget_qualification,
+        authority: callData.decision_maker || String(callData.is_decision_maker ?? ""),
+        need: callData.pain_points || callData.needs_identified,
         timeline: callData.timeline,
       };
-    } catch (e) {
-      console.error("Failed to parse call data:", e);
+    } catch {
+      // ignore
     }
   }
 
-  // Enrichment data
+  // Enrichment data — handle Relevance AI nested answer wrapper
   if (lead.enrichmentData) {
-    try {
-      const enrichment =
-        typeof lead.enrichmentData === "string"
-          ? JSON.parse(lead.enrichmentData)
-          : lead.enrichmentData;
+    const enrichment = parseNestedJson(lead.enrichmentData);
+    if (enrichment) {
       context.enrichmentData = {
         painPoints: enrichment.likely_pain_points || enrichment.pain_points || [],
+        aiOpportunities: enrichment.ai_automation_opportunities || enrichment.ai_opportunities || [],
         industry: enrichment.industry || lead.industry,
-        companySize: enrichment.estimated_company_size || lead.companySize,
+        companySize: enrichment.estimated_company_size || enrichment.company_size || lead.companySize,
+        estimatedRevenue: enrichment.estimated_revenue,
         icpFitScore: enrichment.icp_fit_score,
-        recommendedTone: enrichment.recommended_approach,
-        discoveryQuestions: enrichment.discovery_questions || [],
+        seniorityLevel: enrichment.seniority_level,
+        recommendedApproach: enrichment.recommended_approach,
         talkingPoints: enrichment.talking_points || [],
       };
-    } catch (e) {
-      console.error("Failed to parse enrichment data:", e);
+    }
+  }
+
+  // Outreach strategy — handle both post-call format and Relevance AI format
+  if (lead.outreachStrategy) {
+    const outreach = parseNestedJson(lead.outreachStrategy);
+    if (outreach) {
+      context.outreachData = {
+        discoveryQuestions: Array.isArray(outreach.discovery_questions)
+          ? outreach.discovery_questions
+          : [],
+        objectionHandling: parseObjectionHandling(outreach.objection_handling),
+        valuePropositions: Array.isArray(outreach.value_propositions)
+          ? outreach.value_propositions
+          : [],
+        personalizationHooks: Array.isArray(outreach.personalization_hooks)
+          ? outreach.personalization_hooks
+          : [],
+        bestTimeToReach: outreach.best_time_to_reach,
+      };
+    }
+  }
+
+  // Company research
+  if (company?.companyResearch) {
+    const research = parseNestedJson(company.companyResearch);
+    if (research?.company_overview) {
+      context.companyOverview = research.company_overview;
     }
   }
 
@@ -91,12 +175,18 @@ export function buildCallContext(
         typeof lead.competitorInfo === "string"
           ? JSON.parse(lead.competitorInfo)
           : lead.competitorInfo;
-      context.competitorInfo = {
-        competitors: competitors.map((c: any) => c.name),
-        ourAdvantages: competitors.flatMap((c: any) => c.weaknesses || []),
-      };
-    } catch (e) {
-      console.error("Failed to parse competitor info:", e);
+      if (Array.isArray(competitors)) {
+        context.competitorInfo = {
+          competitors: competitors.map((c: any) => ({
+            name: c.name,
+            strengths: c.strengths || [],
+            weaknesses: c.weaknesses || [],
+          })),
+          ourAdvantages: competitors.flatMap((c: any) => c.weaknesses || []).slice(0, 4),
+        };
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -110,187 +200,216 @@ export function buildCallContext(
 }
 
 export function generateCallScript(lead: Lead, context: CallContext): string {
+  // callNumber === 0 means inbound
   if (context.callNumber === 0) {
-    return generateInboundScript(lead, context);
-  }
-
-  if (!context.isFollowUp) {
-    return generateFirstCallScript(lead, context);
-  }
-
-  return generateFollowUpScript(lead, context);
-}
-
-function generateInboundScript(lead: Lead, context: CallContext): string {
-  let script = `Thanks for calling! This is Sarah from the sales team.`;
-
-  if (lead.name && lead.name !== "Unknown") {
-    script = `Hi ${lead.name.split(" ")[0]}, thanks for calling back! This is Sarah.`;
-
-    if (context.previousCallSummary) {
-      script += ` Great to hear from you again. Last time we spoke about ${summarizeForScript(context.previousCallSummary)}.`;
+    if (lead.name && lead.name !== "Unknown") {
+      return `Hi ${lead.name.split(" ")[0]}, thanks for calling! This is Sarah. How can I help you today?`;
     }
-  } else {
-    script += ` How can I help you today?`;
+    return `Thanks for calling! This is Sarah from the sales team. How can I help you today?`;
   }
 
-  return script;
-}
-
-function generateFirstCallScript(lead: Lead, context: CallContext): string {
-  let script = `Hi, this is Sarah from the sales team. Am I speaking with ${lead.name}`;
-
-  if (lead.company) {
-    script += ` from ${lead.company}`;
-  }
-  script += `?`;
-
-  if (context.enrichmentData?.painPoints?.length) {
-    const painPoint = context.enrichmentData.painPoints[0];
-    script += ` I noticed companies in the ${context.enrichmentData.industry || "your"} industry often face challenges with ${painPoint}. I wanted to reach out because we've been helping similar companies solve exactly that.`;
-  }
-
-  return script;
-}
-
-function generateFollowUpScript(lead: Lead, context: CallContext): string {
-  const firstName = lead.name.split(" ")[0];
-
-  let script = `Hi ${firstName}, this is Sarah following up from our conversation`;
-
-  if (context.previousCallDate) {
-    const daysSince = Math.floor(
-      (Date.now() - new Date(context.previousCallDate).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    if (daysSince === 0) {
-      script += ` earlier today`;
-    } else if (daysSince === 1) {
-      script += ` yesterday`;
-    } else if (daysSince < 7) {
-      script += ` a few days ago`;
-    } else {
-      script += ` last week`;
+  if (context.isFollowUp) {
+    const firstName = lead.name.split(" ")[0];
+    let script = `Hi ${firstName}, this is Sarah following up`;
+    if (context.previousCallDate) {
+      const days = Math.floor(
+        (Date.now() - new Date(context.previousCallDate).getTime()) / 86400000
+      );
+      script +=
+        days === 0 ? " from earlier today" :
+        days === 1 ? " from yesterday" :
+        days < 7 ? " from a few days ago" :
+        " from last week";
     }
+    script += ".";
+    if (context.qualification?.need) {
+      script += ` You mentioned you were looking for help with ${context.qualification.need}.`;
+    } else if (context.previousCallSummary) {
+      const shortened = context.previousCallSummary.slice(0, 80).replace(/\n/g, " ");
+      script += ` We talked about ${shortened}...`;
+    }
+    return script;
   }
-  script += `.`;
 
-  if (context.qualification?.need) {
-    script += ` You mentioned you were looking for help with ${context.qualification.need}.`;
-  } else if (context.previousCallSummary) {
-    script += ` We discussed ${summarizeForScript(context.previousCallSummary)}.`;
-  }
-
-  if (context.qualification?.budget && context.qualification?.timeline) {
-    script += ` I wanted to follow up on next steps for moving forward.`;
-  } else {
-    script += ` I wanted to check in and see if you had any questions.`;
-  }
+  // First call
+  let script = `Hi, is this ${lead.name}`;
+  if (lead.company) script += ` from ${lead.company}`;
+  script += `? Great! This is Sarah from Coder Crew. We help companies automate their workflows with AI. I wanted to have a quick chat to see if we might be able to help${lead.company ? ` ${lead.company}` : " your team"}. Is now an okay time?`;
 
   return script;
-}
-
-function summarizeForScript(summary: string): string {
-  const cleaned = summary.replace(/\n/g, " ").trim();
-  if (cleaned.length > 100) {
-    return cleaned.substring(0, 100).split(" ").slice(0, -1).join(" ") + "...";
-  }
-  return cleaned;
 }
 
 export function generateSystemPrompt(lead: Lead, context: CallContext): string {
-  let prompt = `You are Sarah, a friendly and professional AI sales representative. You're calling ${lead.name}`;
+  const industry = context.enrichmentData?.industry || lead.industry || "your industry";
+  const companySize = context.enrichmentData?.companySize || lead.companySize || "";
+  const painPoints = context.enrichmentData?.painPoints || [];
+  const aiOpportunities = context.enrichmentData?.aiOpportunities || [];
+  const discoveryQuestions = context.outreachData?.discoveryQuestions || [];
+  const objectionHandling = context.outreachData?.objectionHandling || [];
+  const valuePropositions = context.outreachData?.valuePropositions || [];
+  const personalizationHooks = context.outreachData?.personalizationHooks || [];
 
-  if (lead.company) {
-    prompt += ` from ${lead.company}`;
-  }
-  prompt += `.\n\n`;
+  const lastCall = context.callHistory?.[context.callHistory.length - 1];
 
-  // Call context
-  if (context.isFollowUp) {
-    prompt += `## Call Context\nThis is follow-up call #${context.callNumber}.\n`;
-    if (context.previousCallSummary) {
-      prompt += `Previous call summary: ${context.previousCallSummary}\n`;
-    }
-    if (context.qualification) {
-      prompt += `\nWhat we know from previous calls:\n`;
-      if (context.qualification.budget) prompt += `- Budget: ${context.qualification.budget}\n`;
-      if (context.qualification.authority) prompt += `- Decision maker: ${context.qualification.authority}\n`;
-      if (context.qualification.need) prompt += `- Their needs: ${context.qualification.need}\n`;
-      if (context.qualification.timeline) prompt += `- Timeline: ${context.qualification.timeline}\n`;
-    }
-  } else {
-    prompt += `## Call Context\nThis is the first call with this lead.\n`;
-  }
+  let prompt = `You are Sarah, a friendly Sales Development Representative from Coder Crew, an AI solutions agency. Your job is to have a brief, genuine conversation to understand if Coder Crew can help this prospect.
 
-  // Enrichment context
-  if (context.enrichmentData) {
-    prompt += `\n## Lead Intelligence\n`;
-    if (context.enrichmentData.industry) {
-      prompt += `- Industry: ${context.enrichmentData.industry}\n`;
-    }
-    if (context.enrichmentData.companySize) {
-      prompt += `- Company size: ${context.enrichmentData.companySize}\n`;
-    }
-    if (context.enrichmentData.icpFitScore) {
-      prompt += `- ICP fit score: ${context.enrichmentData.icpFitScore}/100\n`;
-    }
-    if (context.enrichmentData.painPoints?.length) {
-      prompt += `- Known pain points: ${context.enrichmentData.painPoints.join(", ")}\n`;
-    }
-    if (context.enrichmentData.recommendedTone) {
-      prompt += `\nRecommended approach: ${context.enrichmentData.recommendedTone}\n`;
-    }
-    if (context.enrichmentData.talkingPoints?.length) {
-      prompt += `\nTalking points to use:\n`;
-      context.enrichmentData.talkingPoints.forEach((tp) => {
-        prompt += `- ${tp}\n`;
-      });
-    }
-    if (context.enrichmentData.discoveryQuestions?.length) {
-      prompt += `\nDiscovery questions to ask:\n`;
-      context.enrichmentData.discoveryQuestions.slice(0, 5).forEach((q) => {
-        prompt += `- ${q}\n`;
-      });
-    }
+## Your Personality
+- Warm, professional, and conversational — never robotic or pushy
+- Genuinely curious about their challenges
+- Respectful of their time — keep the call under 4 minutes
+
+## Lead Information
+- Name: ${lead.name}
+- Company: ${lead.company || "Unknown"}
+- Title: ${lead.title || "Unknown"}
+- Industry: ${industry}${companySize ? `\n- Company Size: ${companySize}` : ""}${context.enrichmentData?.seniorityLevel ? `\n- Seniority: ${context.enrichmentData.seniorityLevel}` : ""}${context.enrichmentData?.estimatedRevenue ? `\n- Estimated Revenue: ${context.enrichmentData.estimatedRevenue}` : ""}${lead.notes ? `\n- Notes: ${lead.notes}` : ""}
+`;
+
+  // Previous call history
+  if (context.isFollowUp && lastCall) {
+    prompt += `
+## Previous Call History
+This is a FOLLOW-UP call. You have spoken with ${lead.name} before.
+- Number of previous calls: ${context.callHistory?.length || 1}
+- Last call outcome: ${lastCall.outcome || "Unknown"}
+- Last call summary: ${lastCall.summary || context.previousCallSummary || "No summary"}${(lastCall as any).painPoints ? `\n- Pain points they mentioned: ${(lastCall as any).painPoints}` : ""}${(lastCall as any).nextSteps ? `\n- Previously agreed next steps: ${(lastCall as any).nextSteps}` : ""}
+
+IMPORTANT: Open by referencing the previous conversation naturally. For example:
+"Hi ${lead.name.split(" ")[0]}, this is Sarah following up from our conversation — do you have a few minutes?"
+`;
   }
 
-  // Competitor context
+  // Company intelligence
+  if (context.companyOverview) {
+    prompt += `
+## Company Intelligence
+${context.companyOverview}
+`;
+  }
+
+  // Pain points
+  if (painPoints.length > 0) {
+    prompt += `
+## Known Pain Points (Reference These!)
+${painPoints.map((p, i) => `${i + 1}. ${p}`).join("\n")}
+`;
+  }
+
+  // AI opportunities
+  if (aiOpportunities.length > 0) {
+    prompt += `
+## AI/Automation Opportunities for This Company
+${aiOpportunities.map((o, i) => `${i + 1}. ${o}`).join("\n")}
+`;
+  }
+
+  // Personalization hooks
+  if (personalizationHooks.length > 0) {
+    prompt += `
+## Personalization Hooks (Mention Naturally)
+${personalizationHooks.map((h) => `- ${h}`).join("\n")}
+`;
+  }
+
+  // Value propositions
+  if (valuePropositions.length > 0) {
+    prompt += `
+## Value Propositions (When Relevant)
+${valuePropositions.map((v) => `- ${v}`).join("\n")}
+`;
+  }
+
+  // Discovery questions
+  const defaultDiscovery = [
+    `What are the current challenges you face in ${industry}?`,
+    "Are there repetitive tasks that take up too much of your team's time?",
+    "Have you explored AI or automation solutions before?",
+    "What would success look like if you could automate some of your processes?",
+    "Who else would be involved in evaluating a solution like this?",
+  ];
+  const questions = discoveryQuestions.length > 0 ? discoveryQuestions.slice(0, 5) : defaultDiscovery;
+
+  prompt += `
+## Discovery Questions (Ask 2-3 Naturally — Not as a Checklist)
+${questions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+`;
+
+  // Objection handling
+  const defaultObjections = [
+    { objection: "not interested", response: "I completely understand. Could I ask what specifically isn't a fit? That helps me know whether to follow up later." },
+    { objection: "no budget", response: "Makes sense. We work with companies at different stages. When would budget discussions typically happen for you?" },
+    { objection: "bad timing", response: "Timing is everything. When would be a better time — next quarter, or end of year?" },
+    { objection: "already have a solution", response: "Good to know. What are you using? I'd love to hear if there are any gaps we could fill." },
+  ];
+  const objections = objectionHandling.length > 0 ? objectionHandling : defaultObjections;
+
+  prompt += `
+## Objection Handling
+${objections.map((o) => `If they say "${o.objection}": ${o.response}`).join("\n")}
+`;
+
+  // Competitor awareness
   if (context.competitorInfo?.competitors?.length) {
-    prompt += `\n## Competitive Context\n`;
-    prompt += `They may be evaluating: ${context.competitorInfo.competitors.join(", ")}\n`;
-    if (context.competitorInfo.ourAdvantages?.length) {
-      prompt += `Our advantages over competitors: ${context.competitorInfo.ourAdvantages.join(", ")}\n`;
-    }
+    prompt += `
+## Competitor Awareness
+They may be evaluating: ${context.competitorInfo.competitors.map((c) => c.name).join(", ")}
+Our advantages: ${context.competitorInfo.ourAdvantages.join(", ")}
+`;
   }
 
-  // Meeting scheduling context
+  // Qualification + BANT
+  if (context.qualification && context.isFollowUp) {
+    prompt += `
+## Known BANT from Previous Calls
+${context.qualification.budget ? `- Budget: ${context.qualification.budget}` : ""}
+${context.qualification.authority ? `- Authority/Decision Maker: ${context.qualification.authority}` : ""}
+${context.qualification.need ? `- Their Need: ${context.qualification.need}` : ""}
+${context.qualification.timeline ? `- Timeline: ${context.qualification.timeline}` : ""}
+`.replace(/\n\n/g, "\n");
+  }
+
+  // Calendly scheduling
   if (context.availableSlots) {
-    prompt += `\n## Meeting Scheduling\n`;
-    prompt += `You can offer to schedule a meeting. Here are available times:\n`;
-    prompt += context.availableSlots;
-    prompt += `\n\nWhen the prospect agrees to a meeting time, confirm the exact date and time clearly.`;
+    prompt += `
+## Meeting Scheduling
+If they're interested, offer to schedule a follow-up meeting. Available times:
+${context.availableSlots}
+Confirm the exact date and time clearly when they agree.
+`;
   }
 
-  // Goals
-  prompt += `\n## Your Goals\n`;
-  if (context.isFollowUp) {
-    prompt += `1. Re-establish rapport by referencing previous conversation\n`;
-    prompt += `2. Address any questions or concerns they have\n`;
-    prompt += `3. Move toward scheduling a demo or next meeting\n`;
-    prompt += `4. If they're ready, propose specific meeting times\n`;
-  } else {
-    prompt += `1. Confirm you're speaking with the right person\n`;
-    prompt += `2. Understand their current challenges and needs\n`;
-    prompt += `3. Qualify: budget, timeline, decision-making authority\n`;
-    prompt += `4. If qualified, offer to schedule a follow-up meeting\n`;
-  }
+  // Call flow
+  prompt += `
+## Call Flow
 
-  prompt += `\n## Important Rules\n`;
-  prompt += `- Be conversational and natural, not robotic\n`;
-  prompt += `- Listen more than you talk\n`;
-  prompt += `- Don't be pushy — if they're not interested, thank them and end politely\n`;
-  prompt += `- If they ask about pricing, give ranges and offer to discuss specifics in a meeting\n`;
-  prompt += `- Always confirm next steps before ending the call\n`;
+### 1. Introduction (15 seconds)
+${context.isFollowUp
+  ? `"Hi ${lead.name.split(" ")[0]}, this is Sarah from Coder Crew following up from our conversation. Do you have a few minutes?"`
+  : `"Hi, is this ${lead.name}? Great! This is Sarah from Coder Crew. We help companies like ${lead.company || "yours"} automate workflows with AI. I wanted a quick 3-minute chat to see if we might be able to help. Is now an okay time?"`
+}
+
+### 2. Discovery (2 minutes)
+Use the discovery questions above, but ask them naturally based on the conversation.${painPoints.length > 0 ? `\nReference their known pain points: "${painPoints[0]}"` : ""}
+
+### 3. BANT Qualification (30 seconds)
+- "If we found a solution that could help, what would your timeline look like?"
+- "Do you have a budget range in mind for a project like this?"
+- "Besides yourself, who else would be involved in the decision?"
+
+### 4. Close (30 seconds)
+If qualified: "This sounds like something we could definitely help with. Would you be open to a 30-minute call with one of our AI specialists? I can send over some available times."
+If not qualified: "Thanks so much for your time. It doesn't sound like the right fit right now, but I'll send over some resources that might be helpful."
+
+## Qualification Criteria
+Mark QUALIFIED if: clear pain point we can solve + budget authority + timeline within 6 months
+Mark NOT_QUALIFIED if: no clear need for AI/automation, no budget path, timeline over 12 months
+
+## Rules
+- Keep the call under 4 minutes
+- If they're busy, offer to call back
+- Thank them regardless of outcome
+- After saying your closing line (goodbye / thank you for your time), end the call immediately
+`;
 
   return prompt;
 }
