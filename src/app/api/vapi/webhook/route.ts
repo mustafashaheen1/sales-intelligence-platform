@@ -225,17 +225,23 @@ export async function POST(request: NextRequest) {
         const previousScore = lead.aiScore;
 
         // Step 1: Save call data
-        await updateLead(lead.id, {
+        const step1Payload = {
           vapiCallStatus: result.status,
           vapiCallSummary: structuredOutputs.call_summary || result.summary || "Call completed",
           vapiCallData: JSON.stringify(structuredOutputs),
           lastCallDate: new Date().toISOString().split("T")[0],
-          lastCallSummary: structuredOutputs.call_summary || result.summary,
+          lastCallSummary: structuredOutputs.call_summary || result.summary || "Call completed",
           callCount: (lead.callCount || 0) + 1,
           callHistory: JSON.stringify(callHistory),
           ...(scheduledTime ? { scheduledMeeting: scheduledTime } : {}),
-        });
-        console.log("Updated Airtable with call data for lead:", lead.id);
+        };
+        console.log("=== WEBHOOK: Step 1 updateLead payload keys:", Object.keys(step1Payload).join(", "));
+        try {
+          await updateLead(lead.id, step1Payload);
+          console.log("Step 1 updateLead OK — call data saved for lead:", lead.id);
+        } catch (step1Err) {
+          console.error("Step 1 updateLead FAILED:", step1Err);
+        }
 
         // Step 2: Always re-score based on call outcome (score can go up or down)
         console.log(`Re-scoring lead ${lead.name} (was: ${previousScore} ${lead.aiScoreLabel})...`);
@@ -258,8 +264,9 @@ export async function POST(request: NextRequest) {
             nextFollowUpDate = new Date(now + daysToAdd * 86400000).toISOString().split("T")[0];
           }
         }
+        console.log("Next follow-up date:", nextFollowUpDate || "none");
 
-        await updateLead(lead.id, {
+        const step2Payload = {
           aiScore: reScoreResult.score,
           aiScoreLabel: reScoreResult.scoreLabel,
           aiInsights: reScoreResult.insights,
@@ -267,7 +274,14 @@ export async function POST(request: NextRequest) {
           concerns: reScoreResult.concerns,
           suggestedNextStep: reScoreResult.suggestedNextStep,
           ...(nextFollowUpDate ? { nextFollowUp: nextFollowUpDate } : {}),
-        });
+        };
+        console.log("=== WEBHOOK: Step 2 updateLead payload keys:", Object.keys(step2Payload).join(", "));
+        try {
+          await updateLead(lead.id, step2Payload);
+          console.log("Step 2 updateLead OK — score saved:", reScoreResult.score, reScoreResult.scoreLabel);
+        } catch (step2Err) {
+          console.error("Step 2 updateLead FAILED:", step2Err);
+        }
 
         // Step 3: Always regenerate outreach strategy based on new score + call context
         if (process.env.OPENAI_API_KEY) {
@@ -285,7 +299,7 @@ export async function POST(request: NextRequest) {
             };
             const emailDraft = await generateOutreach(leadWithCallData as any, "email", outreachTone as any);
             const qualStatus = structuredOutputs.qualification_status || "";
-            await updateLead(lead.id, {
+            const step3Payload = {
               outreachStrategy: JSON.stringify({
                 source: "post-call",
                 call_outcome: qualStatus,
@@ -296,10 +310,11 @@ export async function POST(request: NextRequest) {
               }),
               recommendedChannel: "Email",
               approachTone: outreachTone.charAt(0).toUpperCase() + outreachTone.slice(1),
-            });
-            console.log("Outreach strategy regenerated post-call");
+            };
+            await updateLead(lead.id, step3Payload);
+            console.log("Step 3 OK — outreach strategy regenerated post-call, tone:", outreachTone);
           } catch (outreachErr) {
-            console.error("Failed to regenerate outreach after call:", outreachErr);
+            console.error("Step 3 FAILED — outreach regeneration:", outreachErr);
           }
         }
 

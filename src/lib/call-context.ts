@@ -231,10 +231,10 @@ export function generateCallScript(lead: Lead, context: CallContext): string {
     return script;
   }
 
-  // First call
+  // First call — just confirm the person; say nothing else until they respond
   let script = `Hi, is this ${lead.name}`;
   if (lead.company) script += ` from ${lead.company}`;
-  script += `? Great! This is Sarah from Coder Crew. We help companies automate their workflows with AI. I wanted to have a quick chat to see if we might be able to help${lead.company ? ` ${lead.company}` : " your team"}. Is now an okay time?`;
+  script += `?`;
 
   return script;
 }
@@ -379,17 +379,34 @@ Confirm the exact date and time clearly when they agree.
   }
 
   // Call flow
+  const firstName = lead.name.split(" ")[0];
+  const hookLine = personalizationHooks.length > 0
+    ? personalizationHooks[0]
+    : `companies like ${lead.company || "yours"} are growing quickly`;
+
   prompt += `
 ## Call Flow
 
-### 1. Introduction (15 seconds)
+### 1. Introduction
 ${context.isFollowUp
-  ? `"Hi ${lead.name.split(" ")[0]}, this is Sarah from Coder Crew following up from our conversation. Do you have a few minutes?"`
-  : `"Hi, is this ${lead.name}? Great! This is Sarah from Coder Crew. We help companies like ${lead.company || "yours"} automate workflows with AI. I wanted a quick 3-minute chat to see if we might be able to help. Is now an okay time?"`
+  ? `Your first message already opened with a follow-up greeting. Continue naturally from there.`
+  : `Your first message ONLY asked "Hi, is this ${lead.name}${lead.company ? ` from ${lead.company}` : ""}?" — you have NOT introduced yourself yet.
+
+WAIT for them to respond. Then based on their response:
+
+If they CONFIRM (say "yes", "speaking", "this is [name]", etc.):
+"Great! This is Sarah from Coder Crew. We help companies like ${lead.company || "yours"} automate their workflows with AI. I noticed ${hookLine} — and I wanted to have a quick 3-minute chat to see if we might be able to help. Is now an okay time?"
+
+If they say WRONG NUMBER or are confused:
+"I apologize for the confusion! Have a great day!"
+
+If they ask WHO'S CALLING before confirming:
+"This is Sarah from Coder Crew. Am I speaking with ${lead.name}?"`
 }
 
 ### 2. Discovery (2 minutes)
-Use the discovery questions above, but ask them naturally based on the conversation.${painPoints.length > 0 ? `\nReference their known pain points: "${painPoints[0]}"` : ""}
+Use the discovery questions above, but ask them naturally based on the conversation flow.${painPoints.length > 0 ? `\nYou know they likely struggle with: "${painPoints[0]}" — reference it if it fits.` : ""}
+If they say they're busy: "No problem at all — when would be a better time to reach you?"
 
 ### 3. BANT Qualification (30 seconds)
 - "If we found a solution that could help, what would your timeline look like?"
@@ -406,7 +423,7 @@ Mark NOT_QUALIFIED if: no clear need for AI/automation, no budget path, timeline
 
 ## Rules
 - Keep the call under 4 minutes
-- If they're busy, offer to call back
+- If they confirm their identity, ALWAYS introduce yourself before doing anything else
 - Thank them regardless of outcome
 - After saying your closing line (goodbye / thank you for your time), end the call immediately
 `;

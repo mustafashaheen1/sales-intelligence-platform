@@ -132,6 +132,13 @@ export async function createLead(data: Partial<Lead>): Promise<Lead> {
   if (data.keyStrengths) fields["Key Strengths"] = JSON.stringify(data.keyStrengths);
   if (data.concerns) fields["Concerns"] = JSON.stringify(data.concerns);
   if (data.suggestedNextStep) fields["Suggested Next Step"] = data.suggestedNextStep;
+  if (data.vapiCallStatus) fields["Vapi Call Status"] = data.vapiCallStatus;
+  if (data.vapiCallSummary) fields["Vapi Call Summary"] = data.vapiCallSummary;
+  if (data.vapiCallData) fields["Vapi Call Data"] = data.vapiCallData;
+  if (data.callCount !== undefined) fields["Call Count"] = data.callCount;
+  if (data.lastCallDate) fields["Last Call Date"] = data.lastCallDate;
+  if (data.lastCallSummary) fields["Last Call Summary"] = data.lastCallSummary;
+  if (data.callHistory) fields["Call History"] = data.callHistory;
 
   const record = await base("Leads").create(fields);
   return mapRecordToLead(record);
@@ -178,7 +185,14 @@ export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead>
   if (data.meetingLink !== undefined) fields["Meeting Link"] = data.meetingLink;
   if (data.competitorInfo !== undefined) fields["Competitor Info"] = data.competitorInfo;
 
-  const record = await base("Leads").update(id, fields);
+  const nonEmptyFields: any = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+  if (Object.keys(nonEmptyFields).length === 0) {
+    console.warn("updateLead called with no mappable fields for lead:", id);
+    return getLead(id);
+  }
+
+  console.log(`updateLead [${id}] fields:`, Object.keys(nonEmptyFields).join(", "));
+  const record = await base("Leads").update(id, nonEmptyFields);
   return mapRecordToLead(record);
 }
 
