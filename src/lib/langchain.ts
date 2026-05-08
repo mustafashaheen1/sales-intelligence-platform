@@ -79,7 +79,26 @@ export async function scoreLeadWithCallData(
     call_outcome?: string;
     next_steps?: string;
   }
-): Promise<AIScoreResult> {
+): Promise<AIScoreResult & { followUpTiming?: string }> {
+  const qualStatus = callData.qualification_status || callData.call_outcome || "";
+  const wasNoAnswer = ["no-answer", "no_answer", "NO_ANSWER", "voicemail"].includes(qualStatus);
+
+  // Keep previous score for unanswered calls — no new signal to act on
+  if (wasNoAnswer && lead.aiScore !== undefined) {
+    return {
+      score: lead.aiScore,
+      scoreLabel: getScoreLabel(lead.aiScore),
+      insights: lead.aiInsights || "Call was not answered.",
+      keyStrengths: lead.keyStrengths || [],
+      concerns: lead.concerns || [],
+      suggestedNextStep: lead.suggestedNextStep || "Retry call in 2-3 days",
+      followUpTiming: "2-3 days",
+    };
+  }
+
+  const wasInterested =
+    !["NOT_QUALIFIED", "not_qualified", "NO_INTEREST", "no_interest"].includes(qualStatus);
+
   const model = getModel();
 
   const prompt = `You are an AI sales assistant analyzing a lead AFTER a qualification call.
@@ -89,30 +108,33 @@ LEAD PROFILE:
 - Company: ${lead.company || "Unknown"}
 - Title: ${lead.title || "Unknown"}
 - Source: ${lead.leadSource || "Unknown"}
+- Previous Score: ${lead.aiScore ?? "None"}
 
 CALL RESULTS:
-- Qualification: ${callData.qualification_status || "Unknown"}
+- Qualification: ${qualStatus || "Unknown"}
+- Showed Interest: ${wasInterested ? "Yes" : "No"}
 - Summary: ${callData.call_summary || "No summary"}
 - Pain Points: ${callData.pain_points || "None identified"}
 - Budget: ${callData.budget_range || "Not discussed"}
 - Timeline: ${callData.timeline || "Not discussed"}
 - Decision Maker: ${callData.is_decision_maker ?? "Unknown"}
-- Next Steps: ${callData.next_steps || "None agreed"}
+- Next Steps Agreed: ${callData.next_steps || "None"}
 
 Score this lead (0-100) based on call outcome:
 - QUALIFIED + budget + decision maker = 85-100 (Hot)
 - QUALIFIED + some unknowns = 70-84 (Hot)
-- NEEDS_FOLLOW_UP = 50-69 (Warm)
-- NOT_QUALIFIED = 20-49 (Cold)
+- NEEDS_FOLLOW_UP or partial interest = 50-69 (Warm)
+- NOT_QUALIFIED or no interest shown = 20-49 (Cold)
 
 Return ONLY valid JSON:
 {
   "score": <number>,
   "scoreLabel": "Hot 🔥" or "Warm 🌡️" or "Cold ❄️",
-  "insights": "<2-3 sentences about call findings>",
-  "keyStrengths": ["<strength from call>"],
+  "insights": "<2-3 sentences summarising call findings and lead quality>",
+  "keyStrengths": ["<strength revealed during call>"],
   "concerns": ["<objection or concern raised>"],
-  "suggestedNextStep": "<specific action based on call>"
+  "suggestedNextStep": "<specific action based on call outcome>",
+  "followUpTiming": "<e.g. '24 hours', '1 week', '2 weeks', 'Do not follow up'>"
 }`;
 
   const response = await model.invoke([new HumanMessage(prompt)]);
@@ -121,16 +143,22 @@ Return ONLY valid JSON:
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse AI response");
 
-  const result = JSON.parse(jsonMatch[0]);
-  const score = Math.min(100, Math.max(0, Number(result.score)));
+  const parsed = JSON.parse(jsonMatch[0]);
+  const score = Math.min(100, Math.max(0, Number(parsed.score)));
+  const followUpTiming: string | undefined = parsed.followUpTiming || undefined;
+
+  const suggestedNextStep = followUpTiming
+    ? `${parsed.suggestedNextStep || "Follow up based on call outcome"} (follow up: ${followUpTiming})`
+    : parsed.suggestedNextStep || "Follow up based on call outcome";
 
   return {
     score,
     scoreLabel: getScoreLabel(score),
-    insights: typeof result.insights === "string" ? result.insights : "",
-    keyStrengths: Array.isArray(result.keyStrengths) ? result.keyStrengths : [],
-    concerns: Array.isArray(result.concerns) ? result.concerns : [],
-    suggestedNextStep: result.suggestedNextStep || "Follow up based on call outcome",
+    insights: typeof parsed.insights === "string" ? parsed.insights : "",
+    keyStrengths: Array.isArray(parsed.keyStrengths) ? parsed.keyStrengths : [],
+    concerns: Array.isArray(parsed.concerns) ? parsed.concerns : [],
+    suggestedNextStep,
+    followUpTiming,
   };
 }
 

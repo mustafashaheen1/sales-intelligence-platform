@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseVapiWebhook } from "@/lib/vapi";
 import { triggerN8nWorkflow } from "@/lib/n8n";
 import { getLead, getLeads, updateLead, createActivity, createLead, findLeadByPhoneOrEmail } from "@/lib/airtable";
-import { scoreLeadWithCallData } from "@/lib/langchain";
+import { scoreLeadWithCallData, generateOutreach } from "@/lib/langchain";
 import { normalizePhone } from "@/lib/utils";
 
 function formatDuration(seconds: number): string {
@@ -222,6 +222,7 @@ export async function POST(request: NextRequest) {
     // Update Airtable lead with call results and re-score
     if (lead) {
       try {
+        // Step 1: Save call data
         await updateLead(lead.id, {
           vapiCallStatus: result.status,
           vapiCallSummary: structuredOutputs.call_summary || result.summary || "Call completed",
@@ -234,7 +235,10 @@ export async function POST(request: NextRequest) {
         });
         console.log("Updated Airtable with call data for lead:", lead.id);
 
-        if (structuredOutputs.qualification_status || structuredOutputs.call_summary) {
+        // Step 2: Re-score and regenerate outreach if there's meaningful call data
+        const hasCallSignal = !!(structuredOutputs.qualification_status || structuredOutputs.call_summary);
+        if (hasCallSignal) {
+          // Re-score
           console.log("Re-scoring lead with call data...");
           const reScoreResult = await scoreLeadWithCallData(lead, structuredOutputs);
           await updateLead(lead.id, {
@@ -246,6 +250,44 @@ export async function POST(request: NextRequest) {
             suggestedNextStep: reScoreResult.suggestedNextStep,
           });
           console.log("Lead re-scored:", reScoreResult.score, reScoreResult.scoreLabel);
+
+          // Step 3: Regenerate outreach strategy based on call outcome
+          if (process.env.OPENAI_API_KEY) {
+            try {
+              const qualStatus = structuredOutputs.qualification_status || "";
+              const outreachTone =
+                qualStatus === "QUALIFIED" ? "professional"
+                : qualStatus === "NOT_QUALIFIED" ? "friendly"
+                : "casual";
+              const leadWithCallData = {
+                ...lead,
+                vapiCallData: JSON.stringify(structuredOutputs),
+                aiScore: reScoreResult.score,
+                aiInsights: reScoreResult.insights,
+                suggestedNextStep: reScoreResult.suggestedNextStep,
+              };
+              const emailDraft = await generateOutreach(leadWithCallData as any, "email", outreachTone as any);
+              const outreachJson = JSON.stringify({
+                source: "post-call",
+                call_outcome: qualStatus,
+                recommended_channel: "Email",
+                approach_tone: outreachTone,
+                follow_up_email: {
+                  subject: emailDraft.subject,
+                  message: emailDraft.message,
+                },
+                generated_at: new Date().toISOString(),
+              });
+              await updateLead(lead.id, {
+                outreachStrategy: outreachJson,
+                recommendedChannel: "Email",
+                approachTone: outreachTone.charAt(0).toUpperCase() + outreachTone.slice(1),
+              });
+              console.log("Outreach strategy regenerated post-call");
+            } catch (outreachErr) {
+              console.error("Failed to regenerate outreach after call:", outreachErr);
+            }
+          }
         }
 
         const qualStatus = structuredOutputs.qualification_status;

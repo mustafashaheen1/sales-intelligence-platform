@@ -479,6 +479,9 @@ function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Mail className="h-4 w-4 text-primary" /> Outreach Strategy
+          {data.source === "post-call" && (
+            <Badge variant="secondary" className="ml-auto text-xs bg-blue-500/10 text-blue-400 border-blue-500/20">Post-Call</Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -641,6 +644,39 @@ function OutreachStrategyCard({ outreachStrategy }: { outreachStrategy: string }
               <RotateCw className="h-3.5 w-3.5 text-primary" /> Follow-up Strategy
             </h4>
             <p className="text-sm text-muted-foreground">{data.follow_up_strategy}</p>
+          </div>
+        )}
+
+        {/* Post-call follow-up email draft */}
+        {data.follow_up_email && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5 text-primary" /> Follow-up Email Draft
+            </h4>
+            <div className="border rounded-lg p-3 relative">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="absolute top-2 right-2 h-6 w-6 p-0"
+                onClick={() => {
+                  const text = data.follow_up_email.subject
+                    ? `Subject: ${data.follow_up_email.subject}\n\n${data.follow_up_email.message}`
+                    : data.follow_up_email.message;
+                  navigator.clipboard.writeText(text || "");
+                  toast.success("Copied!");
+                }}
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+              {data.follow_up_email.subject && (
+                <p className="text-sm font-medium mb-2 pr-8">Subject: {data.follow_up_email.subject}</p>
+              )}
+              {data.follow_up_email.message && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                  {data.follow_up_email.message}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
