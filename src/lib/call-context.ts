@@ -199,44 +199,18 @@ export function buildCallContext(
   return context;
 }
 
+export function buildFirstMessage(lead: Lead, context: CallContext): string {
+  if (context.callHistory && context.callHistory.length > 0) {
+    return `Hi ${lead.name}, this is Sarah from Coder Crew following up from our conversation. Do you have a few minutes?`;
+  }
+  if (lead.company) {
+    return `Hi, is this ${lead.name} from ${lead.company}?`;
+  }
+  return `Hi, is this ${lead.name}?`;
+}
+
 export function generateCallScript(lead: Lead, context: CallContext): string {
-  // callNumber === 0 means inbound
-  if (context.callNumber === 0) {
-    if (lead.name && lead.name !== "Unknown") {
-      return `Hi ${lead.name.split(" ")[0]}, thanks for calling! This is Sarah. How can I help you today?`;
-    }
-    return `Thanks for calling! This is Sarah from the sales team. How can I help you today?`;
-  }
-
-  if (context.isFollowUp) {
-    const firstName = lead.name.split(" ")[0];
-    let script = `Hi ${firstName}, this is Sarah following up`;
-    if (context.previousCallDate) {
-      const days = Math.floor(
-        (Date.now() - new Date(context.previousCallDate).getTime()) / 86400000
-      );
-      script +=
-        days === 0 ? " from earlier today" :
-        days === 1 ? " from yesterday" :
-        days < 7 ? " from a few days ago" :
-        " from last week";
-    }
-    script += ".";
-    if (context.qualification?.need) {
-      script += ` You mentioned you were looking for help with ${context.qualification.need}.`;
-    } else if (context.previousCallSummary) {
-      const shortened = context.previousCallSummary.slice(0, 80).replace(/\n/g, " ");
-      script += ` We talked about ${shortened}...`;
-    }
-    return script;
-  }
-
-  // First call — just confirm the person; say nothing else until they respond
-  let script = `Hi, is this ${lead.name}`;
-  if (lead.company) script += ` from ${lead.company}`;
-  script += `?`;
-
-  return script;
+  return buildFirstMessage(lead, context);
 }
 
 export function generateSystemPrompt(lead: Lead, context: CallContext): string {

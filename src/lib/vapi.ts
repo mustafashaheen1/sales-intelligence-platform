@@ -1,6 +1,6 @@
 import { VapiCall, VapiCallStatus, Lead, Company } from "@/types";
 import { formatPhoneForVapi } from "@/lib/utils";
-import { buildCallContext, generateCallScript, generateSystemPrompt } from "./call-context";
+import { buildCallContext, buildFirstMessage, generateSystemPrompt } from "./call-context";
 import { getLeads } from "./airtable";
 
 const VAPI_API_BASE = "https://api.vapi.ai";
@@ -37,17 +37,16 @@ export async function scheduleVapiCall(params: {
     throw new Error("Vapi Phone Number ID not configured");
   }
 
-  let firstMessage = `Hi, this is Sarah from the sales team. Am I speaking with ${params.leadName}${params.leadCompany ? ` from ${params.leadCompany}` : ""}?`;
   let systemPrompt = "";
+  const context = params.lead
+    ? buildCallContext(params.lead, params.company, params.availableSlots, params.schedulingLink)
+    : null;
 
-  if (params.lead) {
-    const context = buildCallContext(
-      params.lead,
-      params.company,
-      params.availableSlots,
-      params.schedulingLink
-    );
-    firstMessage = generateCallScript(params.lead, context);
+  const firstMessage = params.lead && context
+    ? buildFirstMessage(params.lead, context)
+    : `Hi, is this ${params.leadName}${params.leadCompany ? ` from ${params.leadCompany}` : ""}?`;
+
+  if (params.lead && context) {
     systemPrompt = generateSystemPrompt(params.lead, context);
   }
 
