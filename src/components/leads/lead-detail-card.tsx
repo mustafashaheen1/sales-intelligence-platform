@@ -81,7 +81,31 @@ interface OutreachParsed {
 
 function parseNestedJson<T>(raw: string): T | null {
   try {
-    const outer = JSON.parse(raw);
+    // Strip markdown fences before parsing
+    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const outer = JSON.parse(cleaned);
+
+    // Handle enrich_lead_answer (Relevance AI enrichment tool wrapper key)
+    if (outer.enrich_lead_answer) {
+      const inner = outer.enrich_lead_answer;
+      if (typeof inner === "string") {
+        try {
+          return JSON.parse(inner.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        } catch {}
+      }
+      if (typeof inner === "object") return inner as T;
+    }
+
+    // Handle analyze_company_answer (Relevance AI company research wrapper key)
+    if (outer.analyze_company_answer) {
+      const inner = outer.analyze_company_answer;
+      if (typeof inner === "string") {
+        try {
+          return JSON.parse(inner.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        } catch {}
+      }
+      if (typeof inner === "object") return inner as T;
+    }
 
     // Try outer.answer (string → parse again)
     if (outer.answer && typeof outer.answer === "string") {
