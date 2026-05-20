@@ -168,15 +168,49 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           researchedAt: new Date().toISOString().split("T")[0],
         };
 
-        if (researchData?.industry || enrichData?.industry) {
-          companyUpdate.industry = researchData?.industry || enrichData?.industry;
+        // Unwrap analyze_company_answer if present (Relevance AI nested key)
+        let parsedResearch = researchData;
+        if (parsedResearch?.analyze_company_answer) {
+          try {
+            const inner = parsedResearch.analyze_company_answer
+              .replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+            parsedResearch = JSON.parse(inner);
+          } catch {
+            // use original
+          }
         }
-        if (researchData?.company_size || enrichData?.estimated_company_size || enrichData?.company_size) {
-          companyUpdate.companySize = researchData?.company_size || enrichData?.estimated_company_size || enrichData?.company_size;
+
+        if (parsedResearch?.industry || enrichData?.industry) {
+          companyUpdate.industry = parsedResearch?.industry || enrichData?.industry;
         }
-        if (researchData?.website && !company.website) companyUpdate.website = researchData.website;
+        if (parsedResearch?.company_size || parsedResearch?.estimated_company_size || enrichData?.estimated_company_size) {
+          companyUpdate.companySize = parsedResearch?.company_size || parsedResearch?.estimated_company_size || enrichData?.estimated_company_size;
+        }
+        if ((parsedResearch?.website || parsedResearch?.company_website) && !company.website) {
+          companyUpdate.website = parsedResearch.website || parsedResearch.company_website;
+        }
 
         company = await updateCompany(company.id, companyUpdate);
+
+        // Write extra Company fields that updateCompany doesn't support
+        const extraFields: Record<string, any> = {};
+        if (parsedResearch?.company_overview || parsedResearch?.company_description) {
+          extraFields["AI Analysis"] = parsedResearch.company_overview || parsedResearch.company_description;
+        }
+        if (parsedResearch?.estimated_annual_revenue) {
+          extraFields["Annual Revenue"] = parsedResearch.estimated_annual_revenue;
+        }
+        if (Object.keys(extraFields).length > 0) {
+          console.log("Updating Company extra fields:", Object.keys(extraFields).join(", "));
+          const Airtable = require("airtable");
+          const airtableBase = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!);
+          try {
+            await airtableBase("Companies").update(company.id, extraFields);
+            console.log("Company extra fields updated successfully");
+          } catch (extraUpdateErr) {
+            console.error("Failed to update Company extra fields:", extraUpdateErr);
+          }
+        }
       }
 
       // Link lead to company
@@ -187,28 +221,48 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     // Step 3: Competitor research
     let competitorData = null;
-    try {
-      console.log("Starting competitor research...");
-      competitorData = await researchCompetitors({
-        companyName: lead.company || lead.name,
-        industry: enrichData?.industry || lead.industry,
-        companySize: enrichData?.estimated_company_size || lead.companySize,
-        website: lead.website || company?.website,
-      });
-      console.log("Competitor research complete:", competitorData?.competitors?.length, "competitors found");
-    } catch (competitorError) {
-      console.error("Competitor research failed:", competitorError);
+    const COMPETITOR_TOOL_ID = process.env.RELEVANCE_COMPETITOR_TOOL_ID;
+    if (COMPETITOR_TOOL_ID) {
+      try {
+        console.log("=== STARTING COMPETITOR RESEARCH ===");
+        console.log("Company:", lead.company);
+        const industry = enrichData?.industry || lead.industry || "Unknown";
+        const companySize = enrichData?.estimated_company_size || lead.companySize || "";
+        competitorData = await researchCompetitors({
+          companyName: lead.company || lead.name,
+          industry,
+          companySize,
+          knownCompetitors: "",
+        });
+        console.log("Competitor research complete:", competitorData?.competitors?.length, "competitors found");
+      } catch (competitorError) {
+        console.error("Competitor research failed:", competitorError);
+        competitorData = { competitors: [] };
+      }
+    } else {
+      console.warn("RELEVANCE_COMPETITOR_TOOL_ID not set, skipping Relevance AI competitor research");
+      try {
+        competitorData = await researchCompetitors({
+          companyName: lead.company || lead.name,
+          industry: enrichData?.industry || lead.industry,
+          companySize: enrichData?.estimated_company_size || lead.companySize,
+          knownCompetitors: "",
+        });
+      } catch (competitorError) {
+        console.error("Competitor research (fallback) failed:", competitorError);
+        competitorData = { competitors: [] };
+      }
     }
 
     if (competitorData) {
-      updateData.competitorInfo = JSON.stringify(competitorData.competitors);
+      updateData.competitorInfo = JSON.stringify(competitorData.competitors || competitorData);
     }
 
     if (competitorData && company) {
       try {
         await updateCompany(company.id, {
-          competitors: JSON.stringify(competitorData.competitors),
-          competitorAnalysis: competitorData.competitiveAnalysis,
+          competitors: JSON.stringify(competitorData.competitors || []),
+          competitorAnalysis: competitorData.competitiveAnalysis || competitorData.competitive_landscape || "",
         });
       } catch (e) {
         console.error("Failed to update company with competitor data:", e);

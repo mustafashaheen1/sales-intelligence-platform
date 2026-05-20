@@ -180,7 +180,7 @@ export async function researchCompetitors(params: {
   companyName: string;
   industry?: string;
   companySize?: string;
-  website?: string;
+  knownCompetitors?: string;
 }): Promise<{
   competitors: Array<{
     name: string;
@@ -193,22 +193,47 @@ export async function researchCompetitors(params: {
     differentiators?: string[];
   }>;
   competitiveAnalysis?: string;
+  competitive_landscape?: string;
   ourAdvantages?: string[];
   battleCard?: string;
 }> {
   // Use dedicated Relevance AI tool if configured
   if (COMPETITOR_TOOL_ID) {
+    console.log("Calling Relevance AI Competitor Research, tool:", COMPETITOR_TOOL_ID);
+    console.log("Company:", params.companyName, "Industry:", params.industry);
+
     const result = await triggerRelevanceTool(COMPETITOR_TOOL_ID, {
       company_name: params.companyName,
       industry: params.industry || "",
       company_size: params.companySize || "",
-      website: params.website || "",
+      known_competitors: params.knownCompetitors || "",
     });
 
-    const parsed = parseNestedJson(result);
+    console.log("Raw competitor response:", JSON.stringify(result, null, 2));
+
+    let parsed = parseNestedJson(result);
+
+    // Handle analyze_competitors nested key
+    if (parsed?.analyze_competitors) {
+      try {
+        let inner = parsed.analyze_competitors;
+        if (typeof inner === "string") {
+          inner = inner.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+          parsed = JSON.parse(inner);
+        } else {
+          parsed = inner;
+        }
+      } catch {
+        // use original parsed
+      }
+    }
+
+    console.log("Final parsed competitor result:", JSON.stringify(parsed, null, 2));
+
     return {
       competitors: parsed.competitors || [],
       competitiveAnalysis: parsed.competitive_analysis || parsed.analysis,
+      competitive_landscape: parsed.competitive_landscape || parsed.competitive_analysis || parsed.analysis,
       ourAdvantages: parsed.our_advantages || [],
       battleCard: parsed.battle_card,
     };
@@ -227,7 +252,7 @@ export async function researchCompetitors(params: {
 Company: ${params.companyName}
 Industry: ${params.industry || "Unknown"}
 Company Size: ${params.companySize || "Unknown"}
-Website: ${params.website || "Unknown"}
+Known Competitors: ${params.knownCompetitors || "Unknown"}
 
 Provide a competitive analysis in JSON format with:
 1. "competitors": Array of top 3-5 likely competitors they might be evaluating, each with:
