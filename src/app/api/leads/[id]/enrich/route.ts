@@ -197,8 +197,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         if (parsedResearch?.company_overview || parsedResearch?.company_description) {
           extraFields["AI Analysis"] = parsedResearch.company_overview || parsedResearch.company_description;
         }
-        if (parsedResearch?.estimated_annual_revenue) {
-          extraFields["Annual Revenue"] = parsedResearch.estimated_annual_revenue;
+        // Annual Revenue is a dropdown — only set if value looks like a valid range, skip "Not found" / "Unknown"
+        const revenue = parsedResearch?.estimated_annual_revenue;
+        if (revenue && revenue !== "Not found" && revenue !== "Unknown") {
+          const validRevenuePattern = /\$[\d.,]+[BMK]?\s*[-–]\s*\$?[\d.,]+[BMK]?|\$[\d.,]+[BMK]?\+/i;
+          if (validRevenuePattern.test(revenue)) {
+            extraFields["Annual Revenue"] = revenue;
+          } else {
+            console.log("Skipping Annual Revenue — value does not match dropdown pattern:", revenue);
+          }
         }
         if (Object.keys(extraFields).length > 0) {
           console.log("Updating Company extra fields:", Object.keys(extraFields).join(", "));
