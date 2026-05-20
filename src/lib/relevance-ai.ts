@@ -234,6 +234,7 @@ Return JSON with: "competitors" (array of {name, description, strengths[], weakn
           Authorization: `${process.env.RELEVANCE_AI_PROJECT_ID}:${process.env.RELEVANCE_AI_API_KEY}`,
         },
         body: JSON.stringify({
+          project: process.env.RELEVANCE_AI_PROJECT_ID,
           params: {
             company_name: companyName,
             industry: industry || "",
