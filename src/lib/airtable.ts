@@ -310,10 +310,13 @@ export async function createActivity(data: {
   description: string;
   outcome?: ActivityOutcome;
 }): Promise<Activity> {
+  if (!data.leadId) {
+    throw new Error("createActivity requires a non-empty leadId");
+  }
   const base = getBase();
   const fields: any = {
     "Activity Type": data.activityType,
-    Lead: [data.leadId],
+    Lead: [data.leadId],   // linked record field — must be an array
     Description: data.description,
   };
   if (data.outcome) fields["Outcome"] = data.outcome;

@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+    if (!body.leadId) {
+      return NextResponse.json({ error: "leadId is required" }, { status: 400 });
+    }
     const activity = await createActivity(body);
     return NextResponse.json({ activity });
   } catch (error) {
