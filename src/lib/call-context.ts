@@ -400,6 +400,14 @@ Mark NOT_QUALIFIED if: no clear need for AI/automation, no budget path, timeline
 - If they confirm their identity, ALWAYS introduce yourself before doing anything else
 - Thank them regardless of outcome
 - After saying your closing line (goodbye / thank you for your time), end the call immediately
+
+## CRITICAL: Ending the Call
+After you say your final closing statement (like "Have a great day" or "Thank you for your time"):
+1. Wait maximum 3-5 seconds for a brief response like "thanks" or "bye"
+2. Say "Goodbye" and IMMEDIATELY use the endCall function
+3. Do NOT continue the conversation after saying goodbye
+4. Do NOT ask any more questions after your closing statement
+5. If there's silence for more than 5 seconds after your closing, say "Goodbye" and end the call
 `;
 
   return prompt;
