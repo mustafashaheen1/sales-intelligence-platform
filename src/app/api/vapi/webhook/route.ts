@@ -57,26 +57,38 @@ export async function POST(request: NextRequest) {
     }
 
     const call = body.message?.call || body.call || body;
-    const analysis = call.analysis || {};
-    const rawStructuredData = analysis.structuredData || {};
+
+    // Structured outputs live in artifact.structuredOutputs, NOT analysis.structuredData
+    const artifact = body.message?.artifact || {};
+    const rawStructuredData = artifact.structuredOutputs || {};
 
     console.log('Call ID:', call.id);
-    console.log('Analysis:', JSON.stringify(analysis, null, 2));
-    console.log('=== RAW STRUCTURED DATA ===');
+    console.log('=== ARTIFACT STRUCTURED OUTPUTS ===');
     console.log(JSON.stringify(rawStructuredData, null, 2));
 
     const structuredData = parseStructuredOutputs(rawStructuredData);
 
+    // Summary comes from analysis, not structured outputs
+    const analysis = body.message?.analysis || {};
+    const summaryFromAnalysis = analysis.summary || body.message?.summary || '';
+
     // Extract call data from parsed structured outputs
-    const callSummary = structuredData.call_summary || analysis.summary || 'Call completed';
+    const callSummaryFromStructured = structuredData.call_summary || '';
+    const callSummary = callSummaryFromStructured || summaryFromAnalysis || 'Call completed';
     const callOutcome = structuredData.qualification_status || structuredData.call_outcome || 'UNKNOWN';
     const painPoints = structuredData.pain_points || '';
     const budgetRange = structuredData.budget_range || '';
     const timeline = structuredData.timeline || '';
-    const isDecisionMaker = structuredData.is_decision_maker === true || structuredData.is_decision_maker === 'true';
+    const isDecisionMaker = structuredData.is_decision_maker === true;
     const nextSteps = structuredData.next_steps || '';
-    const meetingScheduled = structuredData.meeting_scheduled === true || structuredData.meeting_scheduled === 'true';
+    const meetingScheduled = structuredData.meeting_scheduled === true;
     const scheduledTime = structuredData.scheduled_time || '';
+
+    console.log('=== EXTRACTED DATA ===');
+    console.log('Meeting Scheduled:', meetingScheduled);
+    console.log('Scheduled Time:', scheduledTime);
+    console.log('Call Summary:', callSummary);
+    console.log('Qualification Status:', callOutcome);
 
     // Calculate duration
     let duration = 0;
