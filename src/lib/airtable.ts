@@ -309,17 +309,36 @@ export async function createActivity(data: {
   leadId: string;
   description: string;
   outcome?: ActivityOutcome;
-}): Promise<Activity> {
-  if (!data.leadId) {
-    throw new Error("createActivity requires a non-empty leadId");
+}): Promise<Activity | null> {
+  console.log("=== CREATING ACTIVITY ===");
+  console.log("Lead ID being passed:", data.leadId);
+  console.log("Lead ID type:", typeof data.leadId);
+
+  // Skip (non-fatal) if leadId is missing or doesn't look like an Airtable record ID
+  if (!data.leadId || typeof data.leadId !== "string" || !data.leadId.startsWith("rec")) {
+    console.error("Invalid leadId for activity creation — skipping:", data.leadId);
+    return null;
   }
+
   const base = getBase();
   const fields: any = {
     "Activity Type": data.activityType,
-    Lead: [data.leadId],   // linked record field — must be an array
+    Lead: [data.leadId],
     Description: data.description,
   };
   if (data.outcome) fields["Outcome"] = data.outcome;
-  const record = await base("Activities").create(fields);
-  return mapRecordToActivity(record);
+
+  console.log("Full activity fields:", JSON.stringify(fields, null, 2));
+
+  try {
+    const record = await base("Activities").create(fields);
+    console.log("Activity created successfully:", (record as any).id);
+    return mapRecordToActivity(record);
+  } catch (error: any) {
+    console.error("Activity creation failed");
+    console.error("Lead ID was:", data.leadId);
+    console.error("Fields attempted:", JSON.stringify(fields, null, 2));
+    console.error("Error:", error.message);
+    return null;
+  }
 }
