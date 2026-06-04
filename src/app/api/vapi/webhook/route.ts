@@ -4,6 +4,27 @@ import Airtable from 'airtable';
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!);
 const leadsTable = base('Leads');
 
+// Parse Vapi's UUID-keyed structured outputs into a simple key-value object
+function parseStructuredOutputs(structuredOutputs: Record<string, any>): Record<string, any> {
+  const parsed: Record<string, any> = {};
+
+  if (!structuredOutputs || typeof structuredOutputs !== 'object') {
+    return parsed;
+  }
+
+  for (const key of Object.keys(structuredOutputs)) {
+    const item = structuredOutputs[key];
+    if (item && typeof item === 'object' && 'name' in item && 'result' in item) {
+      parsed[item.name] = item.result;
+    }
+  }
+
+  console.log('=== PARSED STRUCTURED OUTPUTS ===');
+  console.log(JSON.stringify(parsed, null, 2));
+
+  return parsed;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -20,21 +41,24 @@ export async function POST(request: NextRequest) {
 
     const call = body.message?.call || body.call || body;
     const analysis = call.analysis || {};
-    const structuredData = analysis.structuredData || {};
+    const rawStructuredData = analysis.structuredData || {};
 
     console.log('Call ID:', call.id);
     console.log('Analysis:', JSON.stringify(analysis, null, 2));
-    console.log('Structured Data:', JSON.stringify(structuredData, null, 2));
+    console.log('=== RAW STRUCTURED DATA ===');
+    console.log(JSON.stringify(rawStructuredData, null, 2));
 
-    // Extract call data
+    const structuredData = parseStructuredOutputs(rawStructuredData);
+
+    // Extract call data from parsed structured outputs
     const callSummary = structuredData.call_summary || analysis.summary || 'Call completed';
     const callOutcome = structuredData.qualification_status || structuredData.call_outcome || 'UNKNOWN';
     const painPoints = structuredData.pain_points || '';
     const budgetRange = structuredData.budget_range || '';
     const timeline = structuredData.timeline || '';
-    const isDecisionMaker = structuredData.is_decision_maker;
+    const isDecisionMaker = structuredData.is_decision_maker === true || structuredData.is_decision_maker === 'true';
     const nextSteps = structuredData.next_steps || '';
-    const meetingScheduled = structuredData.meeting_scheduled || false;
+    const meetingScheduled = structuredData.meeting_scheduled === true || structuredData.meeting_scheduled === 'true';
     const scheduledTime = structuredData.scheduled_time || '';
 
     // Calculate duration
@@ -77,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     // Add new call entry
     const newCallEntry = {
-      id: call.id,
+      id: call.id || crypto.randomUUID(),
       date: new Date().toISOString(),
       duration,
       outcome: callOutcome,
@@ -119,6 +143,7 @@ export async function POST(request: NextRequest) {
     if (meetingScheduled && scheduledTime) {
       updateFields['Scheduled Meeting'] = scheduledTime;
       updateFields['Status'] = 'Meeting Scheduled';
+      console.log('Meeting scheduled for:', scheduledTime);
     }
 
     console.log('=== UPDATING AIRTABLE ===');
