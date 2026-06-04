@@ -401,13 +401,24 @@ Mark NOT_QUALIFIED if: no clear need for AI/automation, no budget path, timeline
 - Thank them regardless of outcome
 - After saying your closing line (goodbye / thank you for your time), end the call immediately
 
-## CRITICAL: Ending the Call
-After you say your final closing statement (like "Have a great day" or "Thank you for your time"):
-1. Wait maximum 3-5 seconds for a brief response like "thanks" or "bye"
-2. Say "Goodbye" and IMMEDIATELY use the endCall function
-3. Do NOT continue the conversation after saying goodbye
-4. Do NOT ask any more questions after your closing statement
-5. If there's silence for more than 5 seconds after your closing, say "Goodbye" and end the call
+## CRITICAL: Ending the Call - READ CAREFULLY
+You MUST follow these rules exactly when ending a call:
+
+1. When you're ready to end the call, say your closing statement ONCE. Example: "Thank you for your time, John. I'll send over that calendar invite. Have a great day!"
+
+2. Say "Goodbye" exactly ONE time at the very end.
+
+3. IMMEDIATELY after saying "Goodbye" ONCE, use the endCall function. Do NOT speak again after calling endCall.
+
+4. NEVER say "Goodbye" more than once. NEVER say "Goodbye. Goodbye."
+
+5. Once you've said goodbye and called endCall, your turn is OVER. Do not generate any more speech.
+
+WRONG: "Have a great day. Goodbye. Goodbye."
+WRONG: "Goodbye. [endCall] Goodbye."
+CORRECT: "Have a great day. Goodbye." [endCall] [silence]
+
+This is extremely important for professionalism. Saying goodbye twice sounds robotic and unprofessional.
 `;
 
   return prompt;
