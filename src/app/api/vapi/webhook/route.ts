@@ -28,6 +28,23 @@ function parseStructuredOutputs(structuredOutputs: Record<string, any>): Record<
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Log the COMPLETE body structure to find where structured data lives
+    console.log('=== FULL VAPI WEBHOOK BODY ===');
+    console.log(JSON.stringify(body, null, 2));
+
+    console.log('=== TOP LEVEL KEYS ===');
+    console.log(Object.keys(body));
+
+    console.log('=== CHECKING STRUCTURED DATA LOCATIONS ===');
+    console.log('body.analysis:', JSON.stringify(body.analysis));
+    console.log('body.structuredData:', JSON.stringify(body.structuredData));
+    console.log('body.message keys:', JSON.stringify(body.message ? Object.keys(body.message) : 'undefined'));
+    console.log('body.message?.analysis:', JSON.stringify(body.message?.analysis));
+    console.log('body.message?.structuredData:', JSON.stringify(body.message?.structuredData));
+    console.log('body.message?.call?.analysis:', JSON.stringify(body.message?.call?.analysis));
+    console.log('body.call?.analysis:', JSON.stringify(body.call?.analysis));
+
     const messageType = body.message?.type || body.type;
 
     console.log('=== VAPI WEBHOOK RECEIVED ===');
