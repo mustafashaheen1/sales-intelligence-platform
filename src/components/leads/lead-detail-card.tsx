@@ -8,7 +8,7 @@ import { cn, getStatusColor, getInitials, formatDate } from "@/lib/utils";
 import { LeadScoreBadge } from "./lead-score-badge";
 import {
   Mail, Phone, Building2, Briefcase, Globe, Linkedin,
-  BrainCircuit, MessageSquare, PhoneCall, FileEdit, Loader2,
+  Brain, BrainCircuit, MessageSquare, PhoneCall, FileEdit, Loader2,
   CheckCircle2, AlertCircle, ArrowRight, Calendar, Sparkles, Users, Factory,
   Target, DollarSign, UserCheck, Lightbulb, Zap, MessageCircle,
   Newspaper, Code2, TrendingUp, Shield, Crosshair, Search,
@@ -195,6 +195,112 @@ function CopyButton({ text }: { text: string }) {
     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={handleCopy}>
       <Copy className="h-3 w-3" />
     </Button>
+  );
+}
+
+// --- Flat enrichment format (LinkedIn-style: fullName, companyName, companyIndustry, etc.) ---
+
+interface FlatEnrichmentData {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  title?: string;
+  headline?: string;
+  linkedinUrl?: string;
+  photoUrl?: string;
+  companyName?: string;
+  companyDomain?: string;
+  companyIndustry?: string;
+  companySize?: string;
+  companyLinkedin?: string;
+  companyDescription?: string;
+  companyFounded?: string;
+  companyHeadquarters?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  skills?: string[];
+  experience?: any[];
+  [key: string]: any;
+}
+
+function parseFlatEnrichmentData(data: string | object | null | undefined): FlatEnrichmentData | null {
+  if (!data) return null;
+  try {
+    const parsed = typeof data === "string" ? JSON.parse(data) : data;
+    // Only treat as flat format if it has at least one flat-format key
+    const flatKeys = ["fullName", "firstName", "lastName", "headline", "companyName", "companyIndustry", "companySize", "skills"];
+    if (flatKeys.some((k) => k in parsed)) return parsed as FlatEnrichmentData;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function IntelligenceReportCard({ enrichmentDataRaw }: { enrichmentDataRaw: string | object | null | undefined }) {
+  const data = parseFlatEnrichmentData(enrichmentDataRaw);
+  if (!data) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Brain className="h-4 w-4 text-primary" /> Profile Intelligence
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {(data.fullName || data.title || data.headline) && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <UserCheck className="h-3.5 w-3.5 text-primary" /> Person
+            </h4>
+            <div className="space-y-1">
+              {data.fullName && <p className="text-sm"><span className="font-medium">Name:</span> {data.fullName}</p>}
+              {data.title && <p className="text-sm"><span className="font-medium">Title:</span> {data.title}</p>}
+              {data.headline && <p className="text-sm"><span className="font-medium">Headline:</span> {data.headline}</p>}
+              {data.location && <p className="text-sm"><span className="font-medium">Location:</span> {data.location}</p>}
+              {data.linkedinUrl && (
+                <a href={data.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                  <Linkedin className="h-3 w-3" /> LinkedIn Profile
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(data.companyName || data.companyIndustry || data.companySize) && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-primary" /> Company
+            </h4>
+            <div className="space-y-1">
+              {data.companyName && <p className="text-sm"><span className="font-medium">Company:</span> {data.companyName}</p>}
+              {data.companyIndustry && <p className="text-sm"><span className="font-medium">Industry:</span> {data.companyIndustry}</p>}
+              {data.companySize && <p className="text-sm"><span className="font-medium">Size:</span> {data.companySize}</p>}
+              {data.companyFounded && <p className="text-sm"><span className="font-medium">Founded:</span> {data.companyFounded}</p>}
+              {data.companyHeadquarters && <p className="text-sm"><span className="font-medium">HQ:</span> {data.companyHeadquarters}</p>}
+              {data.companyDescription && <p className="text-sm text-muted-foreground leading-relaxed">{data.companyDescription}</p>}
+              {data.companyLinkedin && (
+                <a href={data.companyLinkedin} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                  <Linkedin className="h-3 w-3" /> Company LinkedIn
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {data.skills && data.skills.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2">Skills</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {data.skills.slice(0, 10).map((skill: string, i: number) => (
+                <Badge key={i} variant="outline" className="text-xs">{skill}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1088,7 +1194,10 @@ export function LeadDetailCard({ lead, onScore, onScheduleCall, onEnrich, compan
       {/* Call History */}
       {(lead.callHistory || lead.lastCallSummary) && <CallHistoryCard lead={lead} />}
 
-      {/* Intelligence Report (combined enrichment + company research) */}
+      {/* Profile Intelligence (flat LinkedIn-style format) */}
+      <IntelligenceReportCard enrichmentDataRaw={lead.enrichmentData} />
+
+      {/* Intelligence Report (Relevance AI nested format: icp_fit_score, pain_points, etc.) */}
       {(lead.enrichmentData || companyData?.companyResearch) && (
         <EnrichmentDataCard
           enrichmentData={lead.enrichmentData}
