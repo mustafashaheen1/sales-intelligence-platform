@@ -210,6 +210,45 @@ export async function POST(request: NextRequest) {
         } catch (linkError) {
           console.error('Error saving meeting link:', linkError);
         }
+
+        // Send meeting link email via n8n
+        const N8N_WEBHOOK_URL = process.env.N8N_MEETING_EMAIL_WEBHOOK_URL;
+        if (N8N_WEBHOOK_URL) {
+          try {
+            console.log('=== FETCHING LEAD EMAIL FROM AIRTABLE ===');
+            const leadEmail = leadRecord.fields['Email'] as string || '';
+            const leadName = structuredData.caller_name || leadRecord.fields['Name'] as string || 'there';
+            const companyName = structuredData.company_name || leadRecord.fields['Company'] as string || '';
+            console.log('Lead email from Airtable:', leadEmail || 'NOT FOUND');
+
+            if (leadEmail) {
+              console.log('=== SENDING MEETING EMAIL VIA N8N ===');
+              const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: leadEmail,
+                  leadName,
+                  companyName,
+                  meetingLink: calendlyLink,
+                  scheduledTime,
+                  leadId,
+                }),
+              });
+              if (n8nResponse.ok) {
+                console.log('n8n webhook SUCCESS - meeting email triggered');
+              } else {
+                console.error('n8n webhook failed:', n8nResponse.status);
+              }
+            } else {
+              console.log('Skipping meeting email - no email found for lead in Airtable');
+            }
+          } catch (n8nError) {
+            console.error('Error sending meeting email:', n8nError);
+          }
+        } else {
+          console.log('N8N_MEETING_EMAIL_WEBHOOK_URL not configured');
+        }
       } else {
         console.log('Could not generate Calendly link — check CALENDLY_API_KEY');
       }
