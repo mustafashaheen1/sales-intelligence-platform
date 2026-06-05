@@ -3,6 +3,8 @@ import Airtable from 'airtable';
 import { generateMeetingLink } from '@/lib/calendly';
 import { parseScheduledTime } from '@/lib/google-calendar';
 import { scoreLeadWithCallData } from '@/lib/langchain';
+import { findLeadByPhoneOrEmail, getLead } from '@/lib/airtable';
+import { buildCallContext, generateSystemPrompt } from '@/lib/call-context';
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!);
 const leadsTable = base('Leads');
@@ -53,9 +55,67 @@ export async function POST(request: NextRequest) {
     console.log('=== VAPI WEBHOOK RECEIVED ===');
     console.log('Message type:', messageType);
 
-    // Only process end-of-call-report events
+    // Handle assistant-request (inbound calls — Vapi asks us which assistant to use)
+    if (messageType === 'assistant-request') {
+      console.log('=== INBOUND CALL - ASSISTANT REQUEST ===');
+      const callerPhone =
+        body.message?.call?.customer?.number ||
+        body.message?.customer?.number ||
+        '';
+      console.log('Caller phone:', callerPhone);
+
+      if (!callerPhone) {
+        return NextResponse.json({
+          assistant: {
+            firstMessage: "Hi, this is Sarah from Coder Crew. How can I help you today?",
+          },
+        });
+      }
+
+      try {
+        const { existingLead } = await findLeadByPhoneOrEmail(callerPhone, undefined);
+
+        if (existingLead) {
+          console.log('Found lead for inbound call:', existingLead.id, existingLead.name);
+          const context = buildCallContext(existingLead);
+          const basePrompt = generateSystemPrompt(existingLead, context);
+          const inboundSection = `## This is an INBOUND call — the prospect called you\nThank them for calling. Be ready to answer questions about Coder Crew's services. If they want to schedule a demo, offer available times.\n\n`;
+          const systemPrompt = inboundSection + basePrompt;
+
+          const firstName = existingLead.name?.split(' ')[0] || 'there';
+          return NextResponse.json({
+            assistant: {
+              model: {
+                provider: process.env.VAPI_MODEL_PROVIDER || 'openai',
+                model: process.env.VAPI_MODEL_NAME || 'gpt-4o',
+                messages: [{ role: 'system', content: systemPrompt }],
+              },
+              firstMessage: `Hi ${firstName}, this is Sarah from Coder Crew. Thanks for calling! How can I help you today?`,
+            },
+            metadata: { leadId: existingLead.id, callType: 'inbound' },
+          });
+        } else {
+          console.log('Unknown caller:', callerPhone);
+          return NextResponse.json({
+            assistant: {
+              firstMessage: "Hi, this is Sarah from Coder Crew. Thanks for calling! Who am I speaking with?",
+            },
+            metadata: { callType: 'inbound', callerPhone },
+          });
+        }
+      } catch (lookupError) {
+        console.error('Error looking up lead for inbound call:', lookupError);
+        return NextResponse.json({
+          assistant: {
+            firstMessage: "Hi, this is Sarah from Coder Crew. How can I help you today?",
+          },
+        });
+      }
+    }
+
+    // Only process end-of-call-report events beyond this point
     if (messageType !== 'end-of-call-report') {
-      console.log('Ignoring non-end-of-call event');
+      console.log('Ignoring non-end-of-call event:', messageType);
       return NextResponse.json({ success: true, message: 'Ignored' });
     }
 
@@ -100,11 +160,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Get lead ID from metadata
-    const leadId = call.metadata?.leadId || call.assistantOverrides?.metadata?.leadId;
+    let leadId: string | undefined =
+      call.metadata?.leadId || call.assistantOverrides?.metadata?.leadId;
+
+    // Fallback: look up by caller phone (inbound calls from unknown/untagged flow)
+    if (!leadId) {
+      const callerPhone =
+        body.message?.customer?.number || call.customer?.number || '';
+      if (callerPhone) {
+        console.log('No leadId in metadata — looking up by phone:', callerPhone);
+        try {
+          const { existingLead } = await findLeadByPhoneOrEmail(callerPhone, undefined);
+          if (existingLead) {
+            leadId = existingLead.id;
+            console.log('Found lead by phone:', leadId);
+          }
+        } catch (phoneLookupError) {
+          console.error('Phone lookup failed:', phoneLookupError);
+        }
+      }
+    }
 
     if (!leadId) {
-      console.error('No leadId found in call metadata');
-      return NextResponse.json({ success: false, error: 'No leadId in metadata' }, { status: 400 });
+      console.log('No lead ID found — cannot save call data');
+      return NextResponse.json({ success: true, message: 'No lead to update' });
     }
 
     console.log('Lead ID from metadata:', leadId);
