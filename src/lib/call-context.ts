@@ -280,8 +280,13 @@ ${aiOpportunities.map((o, i) => `${i + 1}. ${o}`).join("\n")}
   // Personalization hooks
   if (personalizationHooks.length > 0) {
     prompt += `
-## Personalization Hooks (Mention Naturally)
+## Personalization Hooks — BACKGROUND CONTEXT ONLY
+DO NOT read these aloud or mention them directly. Use them as background knowledge to sound informed during conversation.
+Research findings to weave in naturally when relevant:
 ${personalizationHooks.map((h) => `- ${h}`).join("\n")}
+
+Example of WRONG usage: "I wanted to mention your recent initiatives in AI/Automation."
+Example of CORRECT usage: "I noticed ${lead.company || "your company"} has been expanding in some interesting areas — how's that going on the operations side?"
 `;
   }
 
@@ -368,9 +373,8 @@ CORRECT: User says "Schedule me for Tuesday 1 PM" → AI: "Perfect, I have you s
 
   // Call flow
   const firstName = lead.name.split(" ")[0];
-  const hookLine = personalizationHooks.length > 0
-    ? personalizationHooks[0]
-    : `companies like ${lead.company || "yours"} are growing quickly`;
+  // Always use a generic company-based opener — never inject raw hook text (which is an instruction, not a phrase)
+  const hookLine = `companies like ${lead.company || "yours"} are finding a lot of value in AI automation right now`;
 
   prompt += `
 ## Call Flow
