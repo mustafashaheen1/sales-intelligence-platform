@@ -146,6 +146,59 @@ export async function createScheduledEvent(params: {
   };
 }
 
+// Create a single-use scheduling link (prospect clicks to confirm booking)
+export async function createSchedulingLink(
+  eventTypeUri: string,
+  maxEventCount = 1
+): Promise<{ booking_url: string } | null> {
+  if (!process.env.CALENDLY_API_KEY) {
+    console.error("CALENDLY_API_KEY not configured");
+    return null;
+  }
+  try {
+    const response = await fetch(`${CALENDLY_API_BASE}/scheduling_links`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        max_event_count: maxEventCount,
+        owner: eventTypeUri,
+        owner_type: "EventType",
+      }),
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("Calendly scheduling link error:", error);
+      return null;
+    }
+    const data = await response.json();
+    return data.resource;
+  } catch (error) {
+    console.error("Error creating scheduling link:", error);
+    return null;
+  }
+}
+
+// Get a single-use booking link using the first active 30-min event type
+export async function generateMeetingLink(): Promise<string | null> {
+  if (!process.env.CALENDLY_API_KEY) return null;
+  try {
+    const user = await getCalendlyUser();
+    const eventTypes = await getEventTypes(user.uri);
+    if (eventTypes.length === 0) {
+      console.error("No active Calendly event types found");
+      return null;
+    }
+    const meetingType =
+      eventTypes.find((et) => et.duration === 30 || et.name.toLowerCase().includes("30")) ||
+      eventTypes[0];
+    const link = await createSchedulingLink(meetingType.uri);
+    return link?.booking_url || null;
+  } catch (error) {
+    console.error("Error generating meeting link:", error);
+    return null;
+  }
+}
+
 // Get upcoming scheduled events
 export async function getScheduledEvents(userUri: string): Promise<Array<{
   uri: string;

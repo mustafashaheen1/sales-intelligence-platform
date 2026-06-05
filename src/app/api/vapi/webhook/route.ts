@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
+import { generateMeetingLink } from '@/lib/calendly';
+import { parseScheduledTime } from '@/lib/google-calendar';
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!);
 const leadsTable = base('Leads');
@@ -188,6 +190,29 @@ export async function POST(request: NextRequest) {
         success: false,
         error: updateError instanceof Error ? updateError.message : 'Update failed',
       }, { status: 500 });
+    }
+
+    // Generate and save Calendly meeting link when a meeting was scheduled
+    if (meetingScheduled && scheduledTime) {
+      console.log('=== GENERATING MEETING LINK ===');
+
+      const parsedTime = parseScheduledTime(scheduledTime);
+      if (parsedTime) {
+        console.log('Parsed meeting time:', parsedTime.toISOString());
+      }
+
+      const calendlyLink = await generateMeetingLink();
+      if (calendlyLink) {
+        console.log('Calendly link generated:', calendlyLink);
+        try {
+          await leadsTable.update(leadId, { 'Meeting Link': calendlyLink });
+          console.log('Meeting link saved to Airtable');
+        } catch (linkError) {
+          console.error('Error saving meeting link:', linkError);
+        }
+      } else {
+        console.log('Could not generate Calendly link — check CALENDLY_API_KEY');
+      }
     }
 
     return NextResponse.json({
