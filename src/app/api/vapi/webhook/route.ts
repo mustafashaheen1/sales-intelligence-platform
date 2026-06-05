@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 import { generateMeetingLink } from '@/lib/calendly';
 import { parseScheduledTime } from '@/lib/google-calendar';
+import { scoreLeadWithCallData } from '@/lib/langchain';
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID!);
 const leadsTable = base('Leads');
@@ -190,6 +191,55 @@ export async function POST(request: NextRequest) {
         success: false,
         error: updateError instanceof Error ? updateError.message : 'Update failed',
       }, { status: 500 });
+    }
+
+    // Recalculate AI Score based on call outcome
+    console.log('=== RECALCULATING AI SCORE ===');
+    try {
+      const existingAiScore = leadRecord.fields['AI Score'] as number | undefined;
+      const existingAiScoreLabel = leadRecord.fields['AI Score Label'] as string | undefined;
+      const existingAiInsights = leadRecord.fields['AI Insights'] as string | undefined;
+      const existingKeyStrengths = leadRecord.fields['Key Strengths'] as string | undefined;
+      const existingConcerns = leadRecord.fields['Concerns'] as string | undefined;
+      const existingSuggestedNextStep = leadRecord.fields['Suggested Next Step'] as string | undefined;
+
+      const leadForScoring = {
+        name: leadRecord.fields['Name'] as string || '',
+        company: leadRecord.fields['Company'] as string || '',
+        title: leadRecord.fields['Title'] as string || '',
+        aiScore: existingAiScore,
+        aiScoreLabel: existingAiScoreLabel as any,
+        aiInsights: existingAiInsights,
+        keyStrengths: existingKeyStrengths ? JSON.parse(existingKeyStrengths) : [],
+        concerns: existingConcerns ? JSON.parse(existingConcerns) : [],
+        suggestedNextStep: existingSuggestedNextStep,
+      };
+
+      const scoreResult = await scoreLeadWithCallData(leadForScoring, {
+        qualification_status: callOutcome,
+        pain_points: painPoints,
+        budget_range: budgetRange,
+        timeline,
+        is_decision_maker: isDecisionMaker,
+        call_summary: callSummary,
+        next_steps: nextSteps,
+      });
+
+      console.log('New AI Score:', scoreResult.score, scoreResult.scoreLabel);
+      console.log('Follow-up timing:', scoreResult.followUpTiming);
+
+      const scoreUpdate: Record<string, any> = {
+        'AI Score': scoreResult.score,
+        'AI Score Label': scoreResult.scoreLabel,
+        'AI Insights': scoreResult.insights,
+        'Key Strengths': JSON.stringify(scoreResult.keyStrengths),
+        'Concerns': JSON.stringify(scoreResult.concerns),
+        'Suggested Next Step': scoreResult.suggestedNextStep,
+      };
+      await leadsTable.update(leadId, scoreUpdate);
+      console.log('AI Score updated in Airtable');
+    } catch (scoreError) {
+      console.error('Error calculating AI score:', scoreError);
     }
 
     // Generate and save Calendly meeting link when a meeting was scheduled
