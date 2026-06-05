@@ -346,9 +346,23 @@ ${context.qualification.timeline ? `- Timeline: ${context.qualification.timeline
   if (context.availableSlots) {
     prompt += `
 ## Meeting Scheduling
-If they're interested, offer to schedule a follow-up meeting. Available times:
+If they're interested or request to schedule a meeting:
+
+1. CONFIRM the date and time clearly: "Perfect, I have you down for [day], [date] at [time]."
+2. Let them know you'll send a calendar invite: "I'll send over a calendar invite shortly."
+3. Thank them warmly: "Thank you so much for your time today, [Name]."
+4. Say goodbye ONCE and end the call.
+
+Available times:
 ${context.availableSlots}
-Confirm the exact date and time clearly when they agree.
+
+IMPORTANT: If the prospect requests a specific meeting time, you MUST:
+- Verbally confirm the exact date and time
+- Acknowledge you'll follow up with details
+- THEN end the call
+
+WRONG: User says "Schedule me for Tuesday 1 PM" → AI: "Goodbye." [NO CONFIRMATION!]
+CORRECT: User says "Schedule me for Tuesday 1 PM" → AI: "Perfect, I have you scheduled for Tuesday at 1 PM. I'll send over a calendar invite. Thank you for your time, have a great day. Goodbye."
 `;
   }
 
@@ -401,24 +415,25 @@ Mark NOT_QUALIFIED if: no clear need for AI/automation, no budget path, timeline
 - Thank them regardless of outcome
 - After saying your closing line (goodbye / thank you for your time), end the call immediately
 
-## CRITICAL: Ending the Call - READ CAREFULLY
-You MUST follow these rules exactly when ending a call:
+## CRITICAL: Ending the Call
+BEFORE saying goodbye, you MUST complete any pending actions:
+- If a meeting was just scheduled, CONFIRM the date and time first
+- If they asked a question, ANSWER it first
+- Thank them for their time
 
-1. When you're ready to end the call, say your closing statement ONCE. Example: "Thank you for your time, John. I'll send over that calendar invite. Have a great day!"
+THEN follow these rules:
+1. Say your closing statement with meeting confirmation if applicable: "I have you down for [date/time]. I'll send the invite. Thank you for your time, have a great day."
+2. Say "Goodbye" exactly ONE time
+3. IMMEDIATELY use the endCall function
+4. NEVER say "Goodbye" more than once
 
-2. Say "Goodbye" exactly ONE time at the very end.
+The sequence is: confirm → thank → goodbye → endCall
 
-3. IMMEDIATELY after saying "Goodbye" ONCE, use the endCall function. Do NOT speak again after calling endCall.
-
-4. NEVER say "Goodbye" more than once. NEVER say "Goodbye. Goodbye."
-
-5. Once you've said goodbye and called endCall, your turn is OVER. Do not generate any more speech.
+WRONG: User requests meeting → AI says "Goodbye." [No confirmation]
+CORRECT: User requests meeting → AI says "Perfect, Tuesday June 9th at 1 PM works great. I'll send over a calendar invite. Thank you for your time, John. Have a great day. Goodbye." [endCall]
 
 WRONG: "Have a great day. Goodbye. Goodbye."
-WRONG: "Goodbye. [endCall] Goodbye."
 CORRECT: "Have a great day. Goodbye." [endCall] [silence]
-
-This is extremely important for professionalism. Saying goodbye twice sounds robotic and unprofessional.
 `;
 
   return prompt;
