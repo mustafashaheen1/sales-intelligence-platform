@@ -21,11 +21,10 @@ export async function POST(request: NextRequest) {
           'Phone': lead.phone,
           'Company': lead.company,
           'Title': lead.title,
-          'Industry': lead.industry,
           'Status': lead.status,
-          'Lead Source': lead.leadSource,
+          'AI Score': lead.aiScore || null,
+          'Source': lead.leadSource || 'Demo',
         };
-        if (lead.aiScore !== undefined) fields['AI Score'] = lead.aiScore;
 
         const record = await leadsTable.create(fields);
         createdLeads.push({ id: record.id, name: lead.name, company: lead.company });
