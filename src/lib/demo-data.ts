@@ -417,3 +417,35 @@ export function getDemoSourceData(): SourceData[] {
     }))
     .filter((s) => s.count > 0);
 }
+
+// --- Airtable demo leads (for populate/clear via API) ---
+
+export interface DemoLeadRecord {
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  title: string;
+  industry: string;
+  status: string;
+  aiScore?: number;
+  leadSource: string;
+}
+
+export const airtableDemoLeads: DemoLeadRecord[] = [
+  { name: "Sarah Mitchell", email: "sarah.mitchell@techcorp.com", phone: "+15550101", company: "TechCorp Solutions", title: "VP of Operations", industry: "Technology", status: "New", leadSource: "Website" },
+  { name: "James Wilson", email: "jwilson@growthventures.io", phone: "+15550102", company: "Growth Ventures", title: "CEO", industry: "Venture Capital", status: "New", leadSource: "Referral" },
+  { name: "Emily Rodriguez", email: "emily.r@scalefin.com", phone: "+15550103", company: "ScaleFin", title: "Director of Sales", industry: "Fintech", status: "Contacted", aiScore: 72, leadSource: "LinkedIn" },
+  { name: "Michael Chang", email: "mchang@rapidlogistics.com", phone: "+15550104", company: "Rapid Logistics", title: "COO", industry: "Logistics", status: "Qualified", aiScore: 85, leadSource: "Cold Outreach" },
+  { name: "Jessica Thompson", email: "jthompson@healthplus.org", phone: "+15550105", company: "HealthPlus", title: "Head of Digital Transformation", industry: "Healthcare", status: "Meeting Scheduled", aiScore: 91, leadSource: "Website" },
+  { name: "David Park", email: "david.park@buildright.co", phone: "+15550106", company: "BuildRight Construction", title: "President", industry: "Construction", status: "New", leadSource: "Referral" },
+  { name: "Amanda Foster", email: "afoster@retailnext.com", phone: "+15550107", company: "RetailNext", title: "VP of E-Commerce", industry: "Retail", status: "Contacted", aiScore: 68, leadSource: "Trade Show" },
+  { name: "Robert Kim", email: "rkim@cloudscale.io", phone: "+15550108", company: "CloudScale", title: "CTO", industry: "Technology", status: "Qualified", aiScore: 88, leadSource: "Website" },
+  { name: "Nicole Adams", email: "nadams@propertygroup.com", phone: "+15550109", company: "Premier Property Group", title: "Broker Owner", industry: "Real Estate", status: "New", leadSource: "Referral" },
+  { name: "Chris Martinez", email: "cmartinez@autofleet.com", phone: "+15550110", company: "AutoFleet Services", title: "Director of Operations", industry: "Logistics", status: "Meeting Scheduled", aiScore: 94, leadSource: "Referral" },
+];
+
+export function getRandomDemoLeads(count: number = 8): DemoLeadRecord[] {
+  const shuffled = [...airtableDemoLeads].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, airtableDemoLeads.length));
+}
