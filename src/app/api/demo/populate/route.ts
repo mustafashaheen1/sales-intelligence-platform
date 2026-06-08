@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
           'Title': lead.title,
           'Status': lead.status,
           'AI Score': lead.aiScore || null,
-          'Source': lead.leadSource || 'Demo',
         };
 
         const record = await leadsTable.create(fields);
