@@ -150,7 +150,16 @@ FINAL SCORE RANGES:
 - 70-100: Hot 🔥 (clearly interested, BANT criteria met)
 - 40-69: Warm 🌡️ (some interest, missing BANT criteria)
 - 10-39: Cold ❄️ (not interested, no urgency, poor fit)
-- 0-9: Do Not Contact (explicitly asked not to be contacted)`;
+- 0-9: Do Not Contact (explicitly asked not to be contacted)
+
+Return your response as a JSON object with these fields:
+- score: number (0-100)
+- scoreLabel: string ("Hot 🔥", "Warm 🌡️", "Cold ❄️", or "Do Not Contact")
+- insights: string (2-3 sentence analysis)
+- keyStrengths: array of strings
+- concerns: array of strings
+- suggestedNextStep: string
+- followUpTiming: string (e.g. "In 2 days", "In 1 week", "In 1 month", "Do not follow up")`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
