@@ -10,6 +10,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-geist-sans" });
 export const metadata: Metadata = {
   title: "SalesAI - Intelligence Platform",
   description: "AI-Powered Sales Intelligence Platform with LangChain, Vapi, and n8n",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

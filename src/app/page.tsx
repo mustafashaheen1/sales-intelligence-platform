@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   BrainCircuit, Phone, Mail, BarChart3, Zap, Target,
   ArrowRight, Sparkles, TrendingUp,
-  Calendar, Shield, Loader2, X,
+  Shield, Loader2, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,6 @@ export default function LandingPage() {
   const { user, login, loading: authLoading } = useAuth();
   const router = useRouter();
   const [showLogin, setShowLogin] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -101,9 +100,6 @@ export default function LandingPage() {
             <Badge variant="outline" className="ml-2 text-xs">Intelligence Platform</Badge>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={() => setShowDemo(true)}>
-              Schedule Demo
-            </Button>
             <Button onClick={() => setShowLogin(true)}>
               Login
             </Button>
@@ -126,33 +122,10 @@ export default function LandingPage() {
             All in one platform that works while you sleep.
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Button size="lg" onClick={() => setShowDemo(true)}>
-              <Calendar className="h-4 w-4 mr-2" />
-              Schedule Demo
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => setShowLogin(true)}>
+            <Button size="lg" onClick={() => setShowLogin(true)}>
               Login to Dashboard
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="py-12 border-y bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {[
-              { value: "85%", label: "Lead Qualification Accuracy" },
-              { value: "10x", label: "Faster Lead Processing" },
-              { value: "60%", label: "More Qualified Meetings" },
-              { value: "24/7", label: "AI Availability" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-3xl font-bold text-primary">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -228,13 +201,9 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-primary text-primary-foreground">
         <div className="container mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Sales Process?</h2>
-          <p className="text-primary-foreground/80 mb-8">
+          <p className="text-primary-foreground/80">
             Join forward-thinking sales teams using AI to qualify leads faster and close more deals.
           </p>
-          <Button size="lg" variant="secondary" onClick={() => setShowDemo(true)}>
-            <Calendar className="h-4 w-4 mr-2" />
-            Schedule Your Demo
-          </Button>
         </div>
       </section>
 
@@ -297,40 +266,6 @@ export default function LandingPage() {
                   )}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Demo Modal */}
-      {showDemo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <Card className="w-full max-w-md mx-4">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-bold">Schedule a Demo</h2>
-                  <p className="text-sm text-muted-foreground">See SalesAI in action</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setShowDemo(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-primary mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">
-                  Book a 30-minute demo to see how SalesAI can transform your sales process.
-                </p>
-                <a
-                  href="https://calendly.com/mustafashaheen/30min"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center w-full h-10 px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  Open Calendar
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </a>
-              </div>
             </CardContent>
           </Card>
         </div>
